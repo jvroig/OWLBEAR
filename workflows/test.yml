@@ -7,4 +7,6 @@ ACTIONS:
       expert: "Strategic Thinking Partner"
       inputs:
         - STR_intro_prompt
-      output: TEST01
+        - STR_delimiter
+        - Create a strategy that can help us deal with this event. It should be specific, actionable, and readily executable. Use markdown formatting.
+      output: test01
