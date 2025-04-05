@@ -280,14 +280,12 @@ ACTIONS:
       output: final_answer
 ```
 
-In this workflow, two different experts are independently asked to respond to the incident.
-
-Both of their outputs are then synthesized by the CEO expert.
-
-That synthesis is then reviewed by the CEO, to see if the plan seems good enough already.
-
-If FALSE, the process will loop back to step 1.
-
-If TRUE, the workflow continues and the CEO expert will output a markdown version of the final plan.
+In this workflow:
+- Two different experts are independently asked to respond to the incident.
+- Both of their outputs are then synthesized by the CEO expert.
+- That synthesis is then reviewed by the CEO, to see if the plan seems good enough already.
+    - If FALSE, the process will loop back to step 1.
+    - If TRUE, the workflow continues
+- The CEO expert will create a markdown version of the final plan.
 
 All of the intermediate and final outputs can be seen in the `outputs/databreach_[timestamp]/` folder
