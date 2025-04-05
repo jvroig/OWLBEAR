@@ -17,7 +17,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 api_key = os.getenv('DASHSCOPE_API_KEY')
-print(f"API KEY: {api_key}")
 base_url = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
 
 
@@ -79,8 +78,8 @@ def get_expert(expert):
                 
                 # Check if this is the expert we're looking for
                 # Case-insensitive matching for flexibility
-                logger.info(f"Looking for: {expert.lower().strip()}")
-                logger.info(f"Found for: {data.get("ExpertID", "").lower().strip()}")
+                # logger.info(f"Looking for: {expert.lower().strip()}")
+                # logger.info(f"Found: {data.get("ExpertID", "").lower().strip()}")
                 if data.get("ExpertID", "").lower().strip() == expert.lower().strip():
                     expert_data["system_prompt"] = data.get("SystemPrompt")
                     logger.info(f"Found expert '{expert}' in {yaml_file.name}")

@@ -45,5 +45,5 @@ ACTIONS:
         - Below is the is the final approved response plan.
         - STR_delimiter
         - ceo_synthesis_01
-        - Turn that into markdown as our final response.
+        - Turn that into markdown as our final response. Output nothing else but the markdown contents.
       output: final_answer
