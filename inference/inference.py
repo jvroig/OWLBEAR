@@ -12,12 +12,28 @@ from pathlib import Path
 
 logger = logging.getLogger("workflow-engine.inference")
 
-# Load API Key
 from dotenv import load_dotenv
 load_dotenv()
 
-api_key = os.getenv('DASHSCOPE_API_KEY')
-base_url = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
+# GLOBAL ENDPOINT SETTINGS
+# These are used for experts that don't define their own.
+# Load from endpoint_config.yaml
+config_path = os.path.join(os.path.dirname(__file__), '..', 'endpoint_config.yaml')
+
+with open(config_path, 'r') as f:
+    config = yaml.safe_load(f)
+
+# Get values from config
+api_key_env_name = config.get('ApiKey')
+api_key = os.getenv(api_key_env_name)
+base_url = config.get('Host')
+model = config.get('Model')
+
+
+# Debugging (optional)
+if not api_key:
+    raise EnvironmentError(f"Environment variable '{api_key_env_name}' not set.")
+
 
 
 def call_agent(expert: str, prompt: str) -> str:

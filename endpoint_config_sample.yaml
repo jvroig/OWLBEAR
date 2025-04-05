@@ -1,0 +1,3 @@
+Host: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+Model: "qwen-max-latest"
+ApiKey: DASHSCOPE_API_KEY
