@@ -1,4 +1,5 @@
 # OWLBEAR
+![OWLBEAR logo](images/owlbear_logo.png)
 OWLBEAR: Orchestrated Workflow Logic with Bespoke Experts for Agentic Routines
 
 ## Overview
