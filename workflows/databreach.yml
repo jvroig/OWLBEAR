@@ -1,0 +1,49 @@
+STRINGS:
+  STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
+  STR_delimiter: "*********************************************"
+
+ACTIONS:
+  - PROMPT:
+      expert: "Strategic Thinking Partner"
+      inputs:
+        - STR_intro_prompt
+      output: strat_response_01
+  
+  - PROMPT:
+      expert: "Ethical Decision Making Counselor"
+      inputs:
+        - STR_intro_prompt
+      output: ethical_response_01  
+
+  - PROMPT:
+      expert: "CEO"
+      inputs:
+        - STR_intro_prompt.
+        - Two experts were asked for their ideas.
+        - "This was the first response: "
+        - strat_response_01
+        - "This was the second response: "
+        - ethical_response_01
+        - Synthesize and improve these responses to come up.
+      output: ceo_synthesis_01
+
+  - DECIDE:
+      expert: "CEO"
+      inputs:
+        - STR_intro_prompt.
+        - "This is the current response plan: "
+        - ceo_synthesis_01
+        - If you think this is good enough as the final response plan, say TRUE.
+      output: ceo_greenlight
+      loopback: 1
+      loop_limit: 10
+
+  - PROMPT:
+      expert: "CEO"
+      inputs:
+        - STR_intro_prompt.
+        - Below is the is the final approved response plan.
+        - STR_delimiter
+        - ceo_synthesis_01
+        - Turn that into markdown as our final response.
+      output: final_answer

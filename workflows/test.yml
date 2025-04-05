@@ -1,0 +1,10 @@
+STRINGS:
+  STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
+  STR_delimiter: "*********************************************"
+
+ACTIONS:
+  - PROMPT:
+      expert: "Strategic Thinking Partner"
+      inputs:
+        - STR_intro_prompt
+      output: TEST01
