@@ -36,6 +36,8 @@ cp endpoint_config_sample.yaml endpoint_config.yaml
 ```
 
 4. Open `endpoint_config.yaml` in your editor and update with your actual endpoint information.
+The sample file shows a list of different endpoints. Currently, OWLBEAR will only use the first endpoint you put in the list. You can remove the superfluous entries. 
+In the future, fallback will be implemented to use the additional endpoints.
 
 5. Create a `.env` file in the project's root directory to place your API KEY. See "Experts" section for matching API Key values in .env with endpoint config. 
 
