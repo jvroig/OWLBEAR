@@ -61,6 +61,7 @@ def call_agent(expert: str, prompt: str) -> str:
             # Parse the JSON chunk
             chunk_data = json.loads(chunk.strip())
             
+            #FIXME: We should also log the tool calls, not just assistant messages
             # If it's an assistant content chunk, accumulate it
             if chunk_data.get('role') == 'assistant' and chunk_data.get('type') == 'chunk':
                 full_response += chunk_data.get('content', '')
@@ -68,6 +69,7 @@ def call_agent(expert: str, prompt: str) -> str:
             # Optionally handle tool calls if needed at this level
             if chunk_data.get('role') == 'tool_call':
                 logger.info(f"Tool call result: {chunk_data.get('content')}")
+                full_response += chunk_data.get('content', '')
         except json.JSONDecodeError:
             logger.error(f"Failed to parse chunk: {chunk}")
     
