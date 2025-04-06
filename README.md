@@ -111,7 +111,7 @@ timestamp: 1743857370.9444122
 
 Changing the expert will change the output since they have different personalities c/o the system prompt.
 
-### Example 1: Test with named strings 
+### Example 2: Test with named strings 
 This is a slightly more complicated example, using named strings and multiple inputs (`test.yml`)
 ```yaml
 STRINGS:
