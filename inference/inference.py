@@ -4,6 +4,7 @@ import json
 import time
 import yaml
 import logging
+from . import tools_lib
 
 from http import HTTPStatus
 from openai import OpenAI
@@ -50,9 +51,29 @@ def call_agent(expert: str, prompt: str) -> str:
     expert_data = get_expert(expert)
     messages = format_messages(expert_data, prompt)
 
-    response = inference_loop(expert_data, messages)
-    logger.info(f"RESPONSE: {response}")
-    return response
+    # Get the streaming generator
+    response_generator = inference_loop(expert_data, messages)
+    
+    # Process the streaming response
+    full_response = ""
+    for chunk in response_generator:
+        try:
+            # Parse the JSON chunk
+            chunk_data = json.loads(chunk.strip())
+            
+            # If it's an assistant content chunk, accumulate it
+            if chunk_data.get('role') == 'assistant' and chunk_data.get('type') == 'chunk':
+                full_response += chunk_data.get('content', '')
+                
+            # Optionally handle tool calls if needed at this level
+            if chunk_data.get('role') == 'tool_call':
+                logger.info(f"Tool call result: {chunk_data.get('content')}")
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse chunk: {chunk}")
+    
+    logger.info(f"FULL RESPONSE: {full_response}")
+    return full_response
+
 
 
 def inference_loop(expert_data, messages):
@@ -77,11 +98,187 @@ def inference_loop(expert_data, messages):
         response = client.chat.completions.create(
             model=current_model,
             messages=messages,
-            stream=False
+            stream=True
         )
-        print(f"Sent for inference: {messages}")
-        return response.choices[0].message.content
+ 
+
+        assistant_response = ""
+
+        # Iterate through the streaming response
+        for chunk in response:
+            if chunk.choices[0].delta.content is not None:
+                # Get the text chunk
+                content = chunk.choices[0].delta.content
+                
+                # Accumulate the full response
+                assistant_response += content
+                
+                # Stream the chunk to the frontend
+                yield json.dumps({'role': 'assistant', 'content': content, 'type': 'chunk'}) + "\n"
+
+        # After streaming is complete, add the full response to messages
+        messages.append({"role": "assistant", "content": assistant_response})
+
+        # Send a completion signal
+        yield json.dumps({'role': 'assistant', 'content': '', 'type': 'done'}) + "\n"
+
+
+        occurrences = assistant_response.count("[[qwen-tool-start]]")
+        if occurrences > 1:
+            #Multiple tool calls are not allowed
+            ToolErrorMsg="Tool Call Error: Multiple tool calls found. Please only use one tool at a time."
+            yield json.dumps({'role': 'tool_call', 'content': ToolErrorMsg}) + "\n"
+
+            messages.append({"role": "user", "content": ToolErrorMsg})
+            print(ToolErrorMsg)
+        elif occurrences == 1:
+            tool_call_data = None
+            try:
+                tool_call_data = parse_tool_call(assistant_response)
+            except:
+                print(f"No valid tool call found")
+                tool_message = f"Tool result: No valid tool call found. Please make sure tool request is valid JSON!"
+                messages.append({"role": "user", "content": tool_message})
+                yield json.dumps({'role': 'tool_call', 'content': tool_message}) + "\n"
+
+            if tool_call_data:
+                # Stream the tool call message back to the frontend
+                # yield json.dumps({'role': 'tool_call', 'content': f"Tool call: {tool_call_data}"}) + "\n"
+
+                # Execute the tool with the provided parameters
+                tool_name = tool_call_data["name"]
+                tool_input = tool_call_data.get("input", {})
+                print(f"Executing tool: {tool_name} with input: {tool_input}")
+                
+                # Assume `execute_tool` is a predefined function
+                tool_result = execute_tool(tool_name, tool_input)
+
+                # Add the tool result as a "user" message in the conversation
+                tool_message = f"Tool result: ```{tool_result}```"
+                messages.append({"role": "user", "content": tool_message})
+                print(f"Tool executed. Result: {tool_result}")
+
+                # Stream the tool result back to the frontend
+                yield json.dumps({'role': 'tool_call', 'content': tool_message}) + "\n"
+
+        else:
+            # If no tool call, terminate the loop
+            break
+
+def format_messages(expert_data, prompt):
+
+    #FIXME: list_tools can be affected by "available_tools" list in experts config
+    #   in order to limit the tools for particular experts
+    available_tools = expert_data.get("ToolsAvailable", None)
+
+    tools_available = tools_lib.list_tools(available_tools)
+    if tools_available == "":
+        system_prompt = expert_data["SystemPrompt"]
+    else:
+        tools_format = tools_lib.get_tools_format()
+        print(tools_available)
+        print(tools_format)
+        system_prompt = f"""
+You have the following tools available:
+{tools_available}
+
+{tools_format}
+
+"""
+        system_prompt = expert_data["SystemPrompt"] + system_prompt
+
+
+    messages = []
+    system_message = {"role": "system", "content": system_prompt}
+    messages.insert(0, system_message)
+    messages.insert(1,{"role": "user", "content": prompt} )
+
+    logger.info(f"Messages sent: {messages}")
+    return messages
+
+def parse_tool_call(response):
+    """
+    Parses the tool call information from an LLM response.
     
+    Args:
+        response (str): The LLM's response containing the tool call.
+        
+    Returns:
+        dict: A dictionary containing the tool name and input parameters.
+              Example: {"name": "tool_name", "input": {"param1": "value1", "param2": "value2"}}
+              
+    Raises:
+        ValueError: If the tool call format is invalid or cannot be parsed.
+    """
+    # Define markers for the tool call block
+    start_marker = "[[qwen-tool-start]]"
+    end_marker = "[[qwen-tool-end]]"
+    
+    try:
+        # Extract the JSON block between the markers
+        start_index = response.find(start_marker) + len(start_marker)
+        end_index = response.find(end_marker)
+        
+        if start_index == -1 or end_index == -1:
+            raise ValueError("Tool call markers not found in the response.")
+        
+        tool_call_block = response[start_index:end_index].strip()
+        
+        # Parse the JSON content
+        tool_call_data = json.loads(tool_call_block)
+        
+        # Validate the structure of the tool call
+        if "name" not in tool_call_data:
+            raise ValueError("Tool call must include a 'name' field.")
+
+        return tool_call_data
+
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse tool call JSON: {e}. Please make sure the tool call is valid JSON")
+        raise
+    
+    except ValueError as e:
+        print(f"Value Error: {e}.")
+        raise
+
+def execute_tool(tool_name, tool_input):
+    """
+    Executes the specified tool with the given input parameters.
+
+    Args:
+        tool_name (str): The name of the tool to execute.
+        tool_input (dict): A dictionary containing the input parameters for the tool.
+
+    Returns:
+        str: The result of the tool execution.
+
+    Raises:
+        ValueError: If the tool_name is invalid or the tool function raises an error.
+    """
+
+    # Check if the tool exists
+    if hasattr(tools_lib, tool_name):
+        tool = getattr(tools_lib, tool_name)
+        if callable(tool):
+            pass
+        else:
+            raise ValueError(f"Unknown tool or uncallable tool: {tool_name}")
+    else:
+        raise ValueError(f"Unknown tool: {tool_name}")
+
+    try:
+        # Execute the tool function with the provided input
+        if tool_input == "":
+            result = tool()
+        else:
+            result = tool(**tool_input)
+        return result
+    except Exception as e:
+        raise ValueError(f"Error executing tool '{tool_name}': {e}")
+
+
+
+
 def get_expert(expert):
     """
     Get expert data from YAML files in the experts directory.
@@ -118,18 +315,3 @@ def get_expert(expert):
     
     logger.warning(f"Expert '{expert}' not found, using default system prompt")
     return expert_data
-    
-def format_messages(expert_data, prompt):
-
-    messages = [
-        {
-            "role": "system",
-            "content": expert_data["SystemPrompt"]
-        },
-        {
-            "role": "user",
-            "content": prompt
-        }
-    ]
-
-    return messages

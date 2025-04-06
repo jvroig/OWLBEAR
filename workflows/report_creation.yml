@@ -1,0 +1,14 @@
+STRINGS:
+  STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
+  STR_delimiter: "*********************************************"
+  STR_output_path: artifacts/
+
+ACTIONS:
+  - PROMPT:
+      expert: CTO
+      inputs:
+        - STR_intro_prompt
+        - STR_delimiter
+        - 'Write a file called "tech_response.md" detailing your suggested response from the technology team. The output folder should be:'
+        - STR_output_path
+      output: report01

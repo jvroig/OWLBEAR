@@ -12,6 +12,7 @@ Whether you're automating business processes, solving complex problems, or foste
 - Modular Expert System : Leverage a library of pre-defined experts (e.g., Executive Coach, Strategic Thinking Partner,Communication Strategist) or create your own bespoke experts tailored to your needs.
 - Customizable Endpoints : Connect to various LLMs and APIs by configuring endpoints for each expert.
 - Orchestrated Workflows : Seamlessly integrate multiple experts into cohesive workflows that align with your business objectives.
+- Equip Agents with Tools : Allow your experts to be more autonomous and affect their environment using tools. 
 - Agentic Routines : Enable AI agents to execute tasks autonomously, reason through challenges, and adapt to dynamic environments by combining orchestrated workflows with tool-using experts.
 
 ## Installation
@@ -78,6 +79,22 @@ MY_SECRET_API_KEY=abcdef42069
 `ApiKey` can be the API Key for any LLM API endpoint - OpenAI, Anthropic, Alibaba Cloud Model Studio, etc. You can store an unlimited number of API keys in `.env`.
 
 In workflows, experts are identified using their `ExpertID` value.
+
+## Tools
+Experts can be given tools by populating `ToolsAvailable` with a list if tools defined in the server. Example: (`experts/cto.yaml`)
+```yaml
+ExpertID: CTO
+Description: Agentic AI that employs CTO-like thinking to guide technology strategy, innovation, and execution.
+SystemPrompt: You are a CTO, embodying the strategic thinking, technical expertise, and leadership skills of a top technology executive. Your role is to provide high-level guidance on technology strategy, innovation, and execution. You excel at aligning technology initiatives with business goals, driving digital transformation, and ensuring scalability and security. Offer clear, actionable advice on topics such as software architecture, team leadership, emerging technologies, and risk management, always with a focus on delivering value to the organization.
+ToolsAvailable:
+  - write_file
+  - read_file
+  - create_directory
+  - list_directory
+```
+These tools have to exist in the server.
+
+In the current prototype tool-calling, these tools are defined in `inference/tools_lib`
 
 ## Workflows
 Workflows are a series of ACTIONS.
@@ -291,3 +308,30 @@ In this workflow:
 - The CEO expert will create a markdown version of the final plan.
 
 All of the intermediate and final outputs can be seen in the `outputs/databreach_[timestamp]/` folder
+
+### Example 4: Data Breach Response Plan Collaboration
+In this simple example, we have only one expert, but it will use tools to create a report file directly instead of just having it in its text response.
+
+File: `workflows/report_creation.yml`
+```yaml
+STRINGS:
+  STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
+  STR_delimiter: "*********************************************"
+  STR_output_path: artifacts/
+
+ACTIONS:
+  - PROMPT:
+      expert: CTO
+      inputs:
+        - STR_intro_prompt
+        - STR_delimiter
+        - 'Write a file called "tech_response.md" detailing your suggested response from the technology team. The output folder should be:'
+        - STR_output_path
+      output: report01
+```
+
+In this workflow:
+- We instruct the expert (CTO) to write a file. This will trigger it to use one of its tools, `write_file`.
+- We have a named string called `STR_output_path`, and use it to instruct the expert where to create the report file. Our expert will use its `create_directory` tool to create this path.
+
+After this executes, you will see an `artifacts` folder created inside of OWLBEAR, containing `tech_response.md`.
