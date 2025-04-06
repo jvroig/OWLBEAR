@@ -24,17 +24,15 @@ with open(config_path, 'r') as f:
     config = yaml.safe_load(f)
 
 # Get values from config
-api_key_env_name = config.get('ApiKey')
-api_key = os.getenv(api_key_env_name)
-base_url = config.get('Host')
-model = config.get('Model')
-
-
-# Debugging (optional)
-if not api_key:
-    raise EnvironmentError(f"Environment variable '{api_key_env_name}' not set.")
-
-
+# Get the first endpoint from the list if it exists, otherwise use the top-level config
+if "Endpoints" in config and isinstance(config["Endpoints"], list) and len(config["Endpoints"]) > 0:
+    first_endpoint = config["Endpoints"][0]
+    api_key_env_name = first_endpoint.get('ApiKey')
+    base_url = first_endpoint.get('Host')
+    model = first_endpoint.get('Model')
+else:
+    logger.error("Improperly configured endpoint_config.yaml!")
+    exit()
 
 def call_agent(expert: str, prompt: str) -> str:
     """
@@ -58,13 +56,26 @@ def call_agent(expert: str, prompt: str) -> str:
 
 
 def inference_loop(expert_data, messages):
+    # Get global variables or override with expert-specific values if provided
+    current_api_key = expert_data.get("Endpoint", {}).get("ApiKey") or api_key_env_name
+    current_base_url = expert_data.get("Endpoint", {}).get("Host") or base_url
+    current_model = expert_data.get("Endpoint", {}).get("Model") or model
+
+    logger.info(f"Endpoint to try: {current_base_url}")
+    logger.info(f"Model to use: {current_model}")
+
+    # Debugging (optional)
+    api_key = os.getenv(current_api_key)
+    if not api_key:
+        raise EnvironmentError(f"Environment variable '{current_api_key}' not set.")
+
     while True:
         client = OpenAI(
             api_key=api_key,
-            base_url=base_url
+            base_url=current_base_url
         )
         response = client.chat.completions.create(
-            model="qwen2.5-32b-instruct",
+            model=current_model,
             messages=messages,
             stream=False
         )
@@ -97,7 +108,8 @@ def get_expert(expert):
                 # logger.info(f"Looking for: {expert.lower().strip()}")
                 # logger.info(f"Found: {data.get("ExpertID", "").lower().strip()}")
                 if data.get("ExpertID", "").lower().strip() == expert.lower().strip():
-                    expert_data["system_prompt"] = data.get("SystemPrompt")
+                    #expert_data["system_prompt"] = data.get("SystemPrompt")
+                    expert_data = data
                     logger.info(f"Found expert '{expert}' in {yaml_file.name}")
                     return expert_data
                     
@@ -112,7 +124,7 @@ def format_messages(expert_data, prompt):
     messages = [
         {
             "role": "system",
-            "content": expert_data["system_prompt"]
+            "content": expert_data["SystemPrompt"]
         },
         {
             "role": "user",

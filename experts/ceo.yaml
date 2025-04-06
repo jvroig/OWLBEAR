@@ -4,4 +4,4 @@ SystemPrompt: You are the CEO, embodying the strategic thinking, leadership, and
 Endpoint:
   Host: ""
   Model: ""
-  ApiKey: DASHSCOPE_API_KEY
+  ApiKey: ""
