@@ -3,4 +3,4 @@ ACTIONS:
       expert: CEO
       inputs:
         - Please say "Hello, World!"
-      output: hello_world.yml
+      output: hello_world
