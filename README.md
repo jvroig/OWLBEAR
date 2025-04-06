@@ -335,3 +335,65 @@ In this workflow:
 - We have a named string called `STR_output_path`, and use it to instruct the expert where to create the report file. Our expert will use its `create_directory` tool to create this path.
 
 After this executes, you will see an `artifacts` folder created inside of OWLBEAR, containing `tech_response.md`.
+
+
+### Example 5: Web Search + Collab
+
+This is a more complex example that shows 3 tool-enabled agents working together.
+
+File: `workflows/web_research.yml`
+```yaml
+STRINGS:
+  STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
+  STR_delimiter: "*********************************************"
+  STR_output_path: artifacts/
+
+ACTIONS:
+  - PROMPT:
+      expert: CTO
+      inputs:
+        - STR_intro_prompt
+        - STR_delimiter
+        - 'Search the web for tips on how best to respond to this data breach incident we are in right now and then create a file "research_summary01.md" that summarizes the key points that you think are most important for the team in order to deal with this incident. Place that file in the following folder:'
+        - STR_output_path
+      output: websearch01
+
+  - PROMPT:
+      expert: "Communication Strategist"
+      inputs:
+        - STR_intro_prompt
+        - STR_delimiter
+        - Read the file artifacts/research_summary01.md - this is the CTO's summary of his research on how to deal with the data breach incident we are facing. Read and understand it, and then give your best feedback in order to help him make the best decision.
+      output: communication_feedback
+  
+  - PROMPT:
+      expert: "Decision Making Advisor"
+      inputs:
+        - STR_intro_prompt
+        - STR_delimiter
+        - Read the file artifacts/research_summary01.md - this is the CTO's summary of his research on how to deal with the data breach incident we are facing. Read and understand it, and then give your best feedback in order to help him make the best decision.
+      output: decision_making_feedback
+
+  - PROMPT:
+      expert: "CTO"
+      inputs:
+        - STR_intro_prompt
+        - STR_delimiter
+        - "Read the file artifacts/research_summary01.md. This is your synthesis on the initial web research you did on how to deal with this incident."
+        - STR_delimiter
+        - "After reading that, here are feedback from your top two advisors. First, the feedback from your Communication Strategist:"
+        - STR_delimiter
+        - communication_feedback
+        - STR_delimiter
+        - "And here is the second feedback, from your Decision Making Advisor:"
+        - STR_delimiter
+        - decision_making_feedback
+        - Based on their feedback and your initial work, please write a final incident response plan to help us deal with this incident. Place it in "artifacts/final_response_plan.md"
+      output: cto_final_response
+```
+
+In this workflow, the CTO first uses the `brave_web_search` tool to research tips in handling the data breach incident. He writes it to `artifacts/research_summary01.md`.
+
+Then, his two advisors weigh in. The Communications Strategist and the Decison Making Advisor both read the created file using the `read-file` tool, and then they give their feedback to the CTO.
+
+The CTO considers both of their feedback to create a final incident response plan, which he then writes to `artifacts/final_response_plan.md`.

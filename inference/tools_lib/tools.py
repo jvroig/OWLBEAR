@@ -80,6 +80,12 @@ def list_tools(available_tools):
         - Summary (files changed, total additions/deletions)
         - Detailed changes per file with hunks showing exact line modifications
 
+-brave_web_search: Search the web using Brave Search API
+    Parameters:
+    - query (required, string): the search query to submit to Brave
+    - count (optional, integer): the number of results to return, defaults to 10
+    Returns: Object - a JSON object containing search results or error information from the Brave Search API
+
 """
 #    return tools_available
     # If no specific tools are requested, return empty

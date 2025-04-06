@@ -6,6 +6,7 @@ ToolsAvailable:
   - read_file
   - create_directory
   - list_directory
+  - brave_web_search
 Endpoint:
   Host: ""
   Model: ""
