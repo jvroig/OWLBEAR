@@ -1,0 +1,12 @@
+ExpertID: HelpfulAssistant
+Description: Agentic AI that is friendly and helpful (very generic)
+SystemPrompt: You are a helpful assistant.
+ToolsAvailable:
+  - write_file
+  - read_file
+  - create_directory
+  - list_directory
+Endpoint:
+  Host: ""
+  Model: ""
+  ApiKey: ""

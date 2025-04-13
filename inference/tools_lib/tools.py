@@ -1,129 +1,222 @@
-def list_tools(available_tools):
-    full_tools_text = """
--get_cwd: Get the current working directory
-    Parameters: None. This tool does not need a parameter.
-    Returns: String - information about the current working directory
-
--read_file: Read a file in the filesystem
-    Parameters:
-    - path (required, string): path and filename of the file to read 
-    Returns: String - the contents of the file specified in `path`
-
--write_file: Write content to a file in the filesystem
-    Parameters:
-    - path (required, string): path and filename of the file to write
-    - content (required, string): the content to write to the file
-    Returns: String - confirmation message indicating success or failure
-
--create_directory: Create a new directory in the filesystem
-    Parameters:
-    - path (required, string): path of the directory to create
-    Returns: String - confirmation message indicating success or failure
-
--list_directory: List the contents of a directory in the filesystem
-    Parameters:
-    - path (optional, string): path of the directory to list. If not provided, lists the current working directory.
-    Returns: String - a list of files and directories in the specified path
-
--git_clone: Clone a git repository using HTTPS
-    Parameters:
-    - repo_url (required, string): The HTTPS URL of the repository to clone
-    - target_path (optional, string): The path where to clone the repository
-    Returns: String - confirmation message indicating success or failure
-
--git_commit: Stage all changes and create a commit
-    Parameters:
-    - message (required, string): The commit message
-    - path (optional, string): The path to the git repository (defaults to current directory)
-    Returns: String - confirmation message indicating success or failure
-
--git_restore: Restore the repository or specific files to a previous state
-    Parameters:
-    - commit_hash (optional, string): The commit hash to restore to. If not provided, unstages all changes
-    - path (optional, string): The path to the git repository (defaults to current directory)
-    - files (optional, list): List of specific files to restore. If not provided, restores everything
-    Returns: String - confirmation message indicating success or failure
-
--git_push: Push commits to a remote repository
-    Parameters:
-    - remote (optional, string): The remote name (defaults to 'origin')
-    - branch (optional, string): The branch name to push to (defaults to 'main')
-    - path (optional, string): The path to the git repository (defaults to current directory)
-    Returns: String - confirmation message indicating success or failure
-
--git_log: Get the commit history of the repository
-    Parameters:
-    - path (optional, string): The path to the git repository (defaults to current directory)
-    - max_count (optional, integer): Maximum number of commits to return
-    - since (optional, string): Get commits since this date (e.g., "2024-01-01" or "1 week ago")
-    Returns: String - JSON formatted commit history with hash, author, date, and message for each commit
-
--git_show: Get detailed information about a specific commit
-    Parameters:
-    - commit_hash (required, string): The hash of the commit to inspect
-    - path (optional, string): The path to the git repository (defaults to current directory)
-    Returns: String - JSON formatted commit details including metadata and changed files
-
--git_status: Get the current status of the repository
-    Parameters:
-    - path (optional, string): The path to the git repository (defaults to current directory)
-    Returns: String - JSON formatted repository status including staged, unstaged, and untracked changes
-
--git_diff: Get the differences between commits, staged changes, or working directory
-    Parameters:
-    - path (optional, string): The path to the git repository (defaults to current directory)
-    - commit1 (optional, string): First commit hash for comparison
-    - commit2 (optional, string): Second commit hash for comparison
-    - staged (optional, boolean): If True, show staged changes (ignored if commits are specified)
-    - file_path (optional, string): Path to specific file to diff
-    Returns: String - JSON formatted diff information including:
-        - Summary (files changed, total additions/deletions)
-        - Detailed changes per file with hunks showing exact line modifications
-
--brave_web_search: Search the web using Brave Search API
-    Parameters:
-    - query (required, string): the search query to submit to Brave
-    - count (optional, integer): the number of results to return, defaults to 10
-    Returns: Object - a JSON object containing search results or error information from the Brave Search API
-
-"""
-#    return tools_available
-    # If no specific tools are requested, return empty
-    if available_tools is None:
-        return ""
+def tools_to_string(tools_dict):
+    """
+    Convert the tools dictionary to a formatted string representation.
+    
+    Args:
+        tools_dict (dict): Dictionary containing tool definitions.
         
-    # Parse the full tools text to extract each tool
-    all_tools_lines = full_tools_text.strip().split('\n')
-    filtered_tools = []
+    Returns:
+        str: Formatted string describing all tools.
+    """
+    result = ""
     
-    current_tool = None
-    tool_content = []
-    
-    for line in all_tools_lines:
-        if line.startswith('-'):
-            # This is the start of a new tool
-            if current_tool and current_tool in available_tools:
-                # If we were processing a tool and it's in our available_tools list
-                filtered_tools.extend(tool_content)
+    # Iterate through all tool categories
+    for category, category_tools in tools_dict.items():
+        # Iterate through each tool in the category
+        for tool_name, tool_info in category_tools.items():
+            # Add tool name and description
+            result += f"-{tool_name}: {tool_info['description']}\n"
             
-            # Reset for the new tool
-            tool_name = line.lstrip('-').split(':')[0].strip()
-            current_tool = tool_name
-            tool_content = [line]
-        elif current_tool:
-            # This line is part of the current tool's description
-            tool_content.append(line)
+            # Add parameters
+            result += "    Parameters:\n"
+            if not tool_info['parameters']:
+                result += "    None. This tool does not need a parameter.\n"
+            else:
+                for param in tool_info['parameters']:
+                    required = "(required, " if param.get("required", True) else "(optional, "
+                    result += f"    - {param['name']} {required}{param['type']}): {param['description']}\n"
+            
+            # Add return value
+            result += f"    Returns: {tool_info['returns']}\n\n"
     
-    # Don't forget to check the last tool
-    if current_tool and current_tool in available_tools:
-        filtered_tools.extend(tool_content)
+    return result
+
+
+def get_tools_dict():
+    """
+    Define and return a dictionary of all available tools.
     
-    # Join the filtered tools back into a string
-    return "\n".join(filtered_tools)
+    Returns:
+        dict: Dictionary containing all tool definitions organized by category.
+    """
+    tools = {
+        "filesystem_tools": {
+            "get_cwd": {
+                "description": "Get the current working directory",
+                "parameters": [],
+                "returns": "String - information about the current working directory"
+            },
+            "read_file": {
+                "description": "Read a file in the filesystem",
+                "parameters": [
+                    {"name": "path", "required": True, "type": "string", "description": "path and filename of the file to read"}
+                ],
+                "returns": "String - the contents of the file specified in `path`"
+            },
+            "write_file": {
+                "description": "Write content to a file in the filesystem",
+                "parameters": [
+                    {"name": "path", "required": True, "type": "string", "description": "path and filename of the file to write"},
+                    {"name": "content", "required": True, "type": "string", "description": "the content to write to the file"}
+                ],
+                "returns": "String - confirmation message indicating success or failure"
+            },
+            "create_directory": {
+                "description": "Create a new directory in the filesystem",
+                "parameters": [
+                    {"name": "path", "required": True, "type": "string", "description": "path of the directory to create"}
+                ],
+                "returns": "String - confirmation message indicating success or failure"
+            },
+            "list_directory": {
+                "description": "List the contents of a directory in the filesystem",
+                "parameters": [
+                    {"name": "path", "required": False, "type": "string", "description": "path of the directory to list. If not provided, lists the current working directory."}
+                ],
+                "returns": "String - a list of files and directories in the specified path"
+            }
+        },
+        
+        "git_tools": {
+            "git_clone": {
+                "description": "Clone a git repository using HTTPS",
+                "parameters": [
+                    {"name": "repo_url", "required": True, "type": "string", "description": "The HTTPS URL of the repository to clone"},
+                    {"name": "target_path", "required": False, "type": "string", "description": "The path where to clone the repository"}
+                ],
+                "returns": "String - confirmation message indicating success or failure"
+            },
+            "git_commit": {
+                "description": "Stage all changes and create a commit",
+                "parameters": [
+                    {"name": "message", "required": True, "type": "string", "description": "The commit message"},
+                    {"name": "path", "required": False, "type": "string", "description": "The path to the git repository (defaults to current directory)"}
+                ],
+                "returns": "String - confirmation message indicating success or failure"
+            },
+            "git_restore": {
+                "description": "Restore the repository or specific files to a previous state",
+                "parameters": [
+                    {"name": "commit_hash", "required": False, "type": "string", "description": "The commit hash to restore to. If not provided, unstages all changes"},
+                    {"name": "path", "required": False, "type": "string", "description": "The path to the git repository (defaults to current directory)"},
+                    {"name": "files", "required": False, "type": "list", "description": "List of specific files to restore. If not provided, restores everything"}
+                ],
+                "returns": "String - confirmation message indicating success or failure"
+            },
+            "git_push": {
+                "description": "Push commits to a remote repository",
+                "parameters": [
+                    {"name": "remote", "required": False, "type": "string", "description": "The remote name (defaults to 'origin')"},
+                    {"name": "branch", "required": False, "type": "string", "description": "The branch name to push to (defaults to 'main')"},
+                    {"name": "path", "required": False, "type": "string", "description": "The path to the git repository (defaults to current directory)"}
+                ],
+                "returns": "String - confirmation message indicating success or failure"
+            },
+            "git_log": {
+                "description": "Get the commit history of the repository",
+                "parameters": [
+                    {"name": "path", "required": False, "type": "string", "description": "The path to the git repository (defaults to current directory)"},
+                    {"name": "max_count", "required": False, "type": "integer", "description": "Maximum number of commits to return"},
+                    {"name": "since", "required": False, "type": "string", "description": "Get commits since this date (e.g., \"2024-01-01\" or \"1 week ago\")"}
+                ],
+                "returns": "String - JSON formatted commit history with hash, author, date, and message for each commit"
+            },
+            "git_show": {
+                "description": "Get detailed information about a specific commit",
+                "parameters": [
+                    {"name": "commit_hash", "required": True, "type": "string", "description": "The hash of the commit to inspect"},
+                    {"name": "path", "required": False, "type": "string", "description": "The path to the git repository (defaults to current directory)"}
+                ],
+                "returns": "String - JSON formatted commit details including metadata and changed files"
+            },
+            "git_status": {
+                "description": "Get the current status of the repository",
+                "parameters": [
+                    {"name": "path", "required": False, "type": "string", "description": "The path to the git repository (defaults to current directory)"}
+                ],
+                "returns": "String - JSON formatted repository status including staged, unstaged, and untracked changes"
+            },
+            "git_diff": {
+                "description": "Get the differences between commits, staged changes, or working directory",
+                "parameters": [
+                    {"name": "path", "required": False, "type": "string", "description": "The path to the git repository (defaults to current directory)"},
+                    {"name": "commit1", "required": False, "type": "string", "description": "First commit hash for comparison"},
+                    {"name": "commit2", "required": False, "type": "string", "description": "Second commit hash for comparison"},
+                    {"name": "staged", "required": False, "type": "boolean", "description": "If True, show staged changes (ignored if commits are specified)"},
+                    {"name": "file_path", "required": False, "type": "string", "description": "Path to specific file to diff"}
+                ],
+                "returns": "String - JSON formatted diff information including: Summary (files changed, total additions/deletions) and Detailed changes per file with hunks showing exact line modifications"
+            }
+        },
+        
+        "web_tools": {
+            "brave_web_search": {
+                "description": "Search the web using Brave Search API. The responses here only contain summaries. Use fetch_web_page to get the full contents of interesting search results.",
+                "parameters": [
+                    {"name": "query", "required": True, "type": "string", "description": "the search query to submit to Brave"},
+                    {"name": "count", "required": False, "type": "integer", "description": "the number of results to return, defaults to 10"}
+                ],
+                "returns": "Object - a JSON object containing search results or error information from the Brave Search API"
+            },
+            "fetch_web_page": {
+                "description": "Fetch content from a specified URL. This is a good tool to use after doing a brave_web_search, in order to get more details from interesting search results.",
+                "parameters": [
+                    {"name": "url", "required": True, "type": "string", "description": "the URL to fetch content from"},
+                    {"name": "headers", "required": False, "type": "dictionary", "description": "custom headers to include in the request, defaults to a standard User-Agent"},
+                    {"name": "timeout", "required": False, "type": "integer", "description": "request timeout in seconds, defaults to 30"},
+                    {"name": "clean", "required": False, "type": "boolean", "description": "whether to extract only the main content, defaults to True"}
+                ],
+                "returns": "String - the cleaned web page content as text, or an error object if the request fails"
+            }
+        },
+        
+        "python_tools": {
+            "python_execute_file": {
+                "description": "Execute a Python file and return its output",
+                "parameters": [
+                    {"name": "file_path", "required": True, "type": "string", "description": "Path to the Python file to execute"}
+                ],
+                "returns": "String - The output of the execution or an error message if execution fails"
+            },
+            "python_check_syntax": {
+                "description": "Check the syntax of Python code",
+                "parameters": [
+                    {"name": "code", "required": False, "type": "string", "description": "Python code to check"},
+                    {"name": "file_path", "required": False, "type": "string", "description": "Path to a Python file to check"}
+                ],
+                "returns": "String - Result of the syntax check"
+            },
+            "python_execute_code": {
+                "description": "Execute arbitrary Python code and return its output",
+                "parameters": [
+                    {"name": "code", "required": True, "type": "string", "description": "Python code to execute"}
+                ],
+                "returns": "String - The output of the execution or an error message if execution fails"
+            }
+        }
+    }
+    
+    return tools
+
+
+def list_tools():
+    """
+    Get a formatted string description of all available tools.
+    
+    Returns:
+        str: Formatted string describing all tools.
+    """
+    tools_dict = get_tools_dict()
+    return tools_to_string(tools_dict)
 
 
 def get_tools_format():
+    """
+    Get the format to use when making tool calls.
     
+    Returns:
+        str: Instructions for how to format tool calls.
+    """
     tools_format = """
 
 When you want to use a tool, make a tool call (no explanations) using this exact format:
@@ -167,6 +260,22 @@ Qwen-Max:
     "name": "list_directory",
     "input": {
         "path": "."
+    }
+}
+[[qwen-tool-end]]
+```
+**********************
+
+Example 3:
+************************
+User: Can you check the syntax of my Python code?
+Qwen-Max:
+```
+[[qwen-tool-start]]
+{
+    "name": "python_check_syntax",
+    "input": {
+        "code": "print('Hello world'"
     }
 }
 [[qwen-tool-end]]

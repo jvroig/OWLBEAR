@@ -17,13 +17,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("workflow-engine")
 
 class WorkflowEngine:
-    def __init__(self, workflow_path: str):
+    def __init__(self, workflow_path: str, user_input: Optional[str] = None):
         """Initialize the workflow engine with a YAML workflow definition file."""
         self.workflow_path = workflow_path
         self.workflow = None
         self.string_vars = {}
         self.output_vars = {}
         self.current_step = 0
+        self.user_input = user_input
 
         # Get workflow name from file path
         workflow_name = os.path.basename(workflow_path).split('.')[0]
@@ -50,7 +51,13 @@ class WorkflowEngine:
             if 'ACTIONS' not in self.workflow or not self.workflow['ACTIONS']:
                 logger.error("No ACTIONS section found in workflow or ACTIONS is empty")
                 return False
-                
+
+            if self.user_input:
+                self.string_vars["STR_USER_INPUT"] = self.user_input
+            # Otherwise, ensure it exists with empty string if not defined
+            elif "STR_USER_INPUT" not in self.string_vars:
+                self.string_vars["STR_USER_INPUT"] = ""
+
             logger.info(f"Loaded workflow with {len(self.workflow['ACTIONS'])} actions")
             return True
         except Exception as e:
@@ -173,12 +180,15 @@ def run_workflow(workflow_path: str) -> bool:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python owlbear.py <workflow_yaml_path>")
+    if len(sys.argv) < 2:
+        print("Usage: python owlbear.py <workflow_yaml_path> [user_prompt]")
         sys.exit(1)
     
     workflow_path = sys.argv[1]
-    success = run_workflow(workflow_path)
+    user_input = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    engine = WorkflowEngine(workflow_path, user_input)
+    success = engine.run()
     
     if success:
         print("Workflow completed successfully!")
