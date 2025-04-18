@@ -199,7 +199,7 @@ def get_tools_dict():
     return tools
 
 
-def list_tools():
+def list_tools(ignore=''):
     """
     Get a formatted string description of all available tools.
     

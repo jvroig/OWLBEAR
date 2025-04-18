@@ -26,6 +26,7 @@ ACTIONS:
         - "This is step 3: Second DECIDE action."
         - "The previous step was step 2 (First DECIDE)."
         - "If this looks wrong, say FALSE to go back to step 1, otherwise say TRUE to continue."
+        - "For purposes of this test, say FALSE"
       output: step3_output
       loopback: 1
       loop_limit: 5
