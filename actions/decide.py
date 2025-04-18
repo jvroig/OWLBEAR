@@ -60,6 +60,10 @@ def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tu
         if decision:
             return True, None  # Continue to next step
         else:
+            # Fix: return the correct 0-indexed step number
+            # YAML files use 1-indexed steps, so we subtract 1 to convert to 0-indexed
+            # Check what step number this is actually returning to by enabling debug logging
+            logger.debug(f"Looping back from step {context['step_number']} to step {loopback} (1-indexed) or {loopback-1} (0-indexed)")
             return True, loopback - 1  # Loop back (adjust for 0-indexing)
     except Exception as e:
         logger.error(f"Step {context['step_number']}: Error in DECIDE action: {str(e)}")

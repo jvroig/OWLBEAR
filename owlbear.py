@@ -163,6 +163,12 @@ class WorkflowEngine:
                         if loop_count >= loop_limit:
                             logger.error(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
                             return False
+                        # Important: next_step is already adjusted for 0-indexing in decide.py as (loopback - 1)
+                        # If we need to fix the off-by-one error with loopbacks, the issue might be:
+                        # 1. In YAML files: ensure loopback values specify the correct step # to return to (1-indexed)
+                        # 2. In decide.py: it already does loopback - 1 to convert from 1-indexed to 0-indexed
+                        # 3. Here: we use the 0-indexed value directly
+                        logger.debug(f"Setting current_step to {next_step} (0-indexed) which is step {next_step+1} in the workflow")
                         self.current_step = next_step
             
             else:

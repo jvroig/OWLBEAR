@@ -1,0 +1,38 @@
+STRINGS:
+  STR_intro_prompt: "This is a test workflow to reproduce the PROMPT+DECIDE+DECIDE bug."
+  STR_delimiter: "*********************************************"
+
+ACTIONS:
+  - PROMPT:
+      expert: "CEO"
+      inputs:
+        - STR_intro_prompt
+        - "This is step 1: PROMPT action."
+      output: step1_output
+  
+  - DECIDE:
+      expert: "CEO"
+      inputs:
+        - "This is step 2: First DECIDE action."
+        - "The previous step was step 1 (PROMPT)."
+        - "If this looks wrong, say FALSE to go back to step 1, otherwise say TRUE to continue."
+      output: step2_output
+      loopback: 1
+      loop_limit: 5
+
+  - DECIDE:
+      expert: "CEO"
+      inputs:
+        - "This is step 3: Second DECIDE action."
+        - "The previous step was step 2 (First DECIDE)."
+        - "If this looks wrong, say FALSE to go back to step 1, otherwise say TRUE to continue."
+      output: step3_output
+      loopback: 1
+      loop_limit: 5
+
+  - PROMPT:
+      expert: "CEO"
+      inputs:
+        - "This is step 4: Final PROMPT action."
+        - "We made it to the end of the workflow!"
+      output: final_output
