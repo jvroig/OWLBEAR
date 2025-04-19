@@ -161,7 +161,7 @@ def get_tools_dict():
                     {"name": "query", "required": True, "type": "string", "description": "the search query to submit to Brave"},
                     {"name": "count", "required": False, "type": "integer", "description": "the number of results to return, defaults to 10"}
                 ],
-                "returns": "Object - a JSON object containing search results or error information from the Brave Search API"
+                "returns": "Object - a JSON object containing search results or error information from the Brave Search API. Use fetch_web_page on relevant URLs to get the full, deeper information, especially for research tasks."
             },
             "fetch_web_page": {
                 "description": "Fetch content from a specified URL. This is a good tool to use after doing a brave_web_search, in order to get more details from interesting search results.",
