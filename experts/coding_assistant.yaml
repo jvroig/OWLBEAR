@@ -1,0 +1,14 @@
+ExpertID: Coding Assistant
+Description: Agentic AI for coding tasks
+SystemPrompt: You are a helpful assistant and well-versed in python coding.
+ToolsAvailable:
+  - write_file
+  - read_file
+  - create_directory
+  - list_directory
+  - python_execute_file
+  - python_check_syntax
+Endpoint:
+  Host: ""
+  Model: ""
+  ApiKey: ""

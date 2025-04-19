@@ -139,7 +139,7 @@ def inference_loop(expert_data, messages):
                 tool_call_data = parse_tool_call(assistant_response)
             except:
                 print(f"No valid tool call found")
-                tool_message = f"Tool result: No valid tool call found. Please make sure tool request is valid JSON!"
+                tool_message = f"Tool result: No valid tool call found. Please make sure tool request is valid JSON, and escape necessary characters. Try again with better-formatted JSON"
                 messages.append({"role": "user", "content": tool_message})
                 yield json.dumps({'role': 'tool_call', 'content': tool_message}) + "\n"
 
