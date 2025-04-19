@@ -1,9 +1,10 @@
-def tools_to_string(tools_dict):
+def tools_to_string(tools_dict, available_tools=None):
     """
     Convert the tools dictionary to a formatted string representation.
     
     Args:
         tools_dict (dict): Dictionary containing tool definitions.
+        available_tools (list, optional): List of tool names to include. If None, all tools are included.
         
     Returns:
         str: Formatted string describing all tools.
@@ -14,6 +15,10 @@ def tools_to_string(tools_dict):
     for category, category_tools in tools_dict.items():
         # Iterate through each tool in the category
         for tool_name, tool_info in category_tools.items():
+            # Skip tools not in available_tools if available_tools is provided
+            if available_tools is not None and tool_name not in available_tools:
+                continue
+                
             # Add tool name and description
             result += f"-{tool_name}: {tool_info['description']}\n"
             
@@ -199,15 +204,18 @@ def get_tools_dict():
     return tools
 
 
-def list_tools(ignore=''):
+def list_tools(available_tools=None):
     """
-    Get a formatted string description of all available tools.
+    Get a formatted string description of available tools.
     
+    Args:
+        available_tools (list, optional): List of tool names to include. If None, all tools are included.
+        
     Returns:
-        str: Formatted string describing all tools.
+        str: Formatted string describing the specified tools.
     """
     tools_dict = get_tools_dict()
-    return tools_to_string(tools_dict)
+    return tools_to_string(tools_dict, available_tools)
 
 
 def get_tools_format():

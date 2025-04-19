@@ -1,0 +1,31 @@
+STRINGS:
+  STR_delimiter: "*********************************************"
+  STR_artifacts: /home/jvroig/Dev/OWLBEAR/artifacts/python_code.py
+
+ACTIONS:
+  - PROMPT:
+      expert: "Coding Assistant"
+      inputs:
+        - STR_USER_INPUT
+        - 'Use your write_file tool to write the code here:'
+        - STR_artifacts
+      output: step1
+  - DECIDE:
+      expert: "Coding Assistant"
+      inputs:
+        - 'Use your python_check_syntax tool to check this code for syntax errors:'
+        - STR_artifacts
+        - If there are no syntax errors, say TRUE.
+      output: syntax_check
+      loopback: 0
+      loop_limit: 20  
+  - DECIDE:
+      expert: "Coding Assistant"
+      inputs:
+        - 'Use your python_execute_file tool to check this code for errors:'
+        - STR_artifacts
+        - If you believe this code is 100% correct, say TRUE
+      output: python_execute_check
+      loopback: 0
+      loop_limit: 20   
+
