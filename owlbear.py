@@ -16,6 +16,10 @@ from inference import call_agent
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("workflow-engine")
 
+from dotenv import load_dotenv
+load_dotenv()
+
+
 class WorkflowEngine:
     def __init__(self, workflow_path: str, user_input: Optional[str] = None):
         """Initialize the workflow engine with a YAML workflow definition file."""

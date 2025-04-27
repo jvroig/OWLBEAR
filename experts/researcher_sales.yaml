@@ -6,7 +6,3 @@ ToolsAvailable:
   - fetch_web_page
   - write_file
   - read_file
-Endpoint:
-  Host: ""
-  Model: ""
-  ApiKey: DASHSCOPE_API_KEY
