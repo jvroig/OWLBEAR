@@ -140,10 +140,27 @@ class WorkflowEngine:
             def represent_str_literal(dumper, data):
                 if '\n' in data:
                     return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-                return dumper.represent_scalar('tag:yaml.org,2002:str', data)     
+                return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+            
+            # Custom dictionary representer for history items to preserve field order
+            def represent_dict_preserve_order(dumper, data):
+                if 'history' in data and isinstance(data['history'], list):
+                    # Ensure role comes before message in each history item
+                    for item in data['history']:
+                        if 'role' in item and 'message' in item:
+                            # Reorder the keys to ensure role is first
+                            ordered_item = {}
+                            ordered_item['role'] = item['role']
+                            ordered_item['message'] = item['message']
+                            # Replace the original item with the ordered one
+                            item.clear()
+                            item.update(ordered_item)
+                            
+                return dumper.represent_mapping('tag:yaml.org,2002:map', data.items())
                        
-            # Add the custom representer
+            # Add the custom representers
             yaml.add_representer(str, represent_str_literal)
+            yaml.add_representer(dict, represent_dict_preserve_order)
             
             with open(output_path, 'w') as file:
                 yaml.dump(data, file, default_flow_style=False, allow_unicode=True, width=float("inf"))

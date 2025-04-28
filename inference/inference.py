@@ -57,10 +57,10 @@ def call_agent(expert: str, prompt: str) -> dict:
     # Process the streaming response
     conversation_history = []
     
-    # Add initial user query
+    # Add initial user query - with role first
     conversation_history.append({
         "role": "user",
-        "content": prompt
+        "message": prompt
     })
     
     current_assistant_content = ""
@@ -79,7 +79,7 @@ def call_agent(expert: str, prompt: str) -> dict:
                 if current_assistant_content:
                     conversation_history.append({
                         "role": "assistant",
-                        "content": current_assistant_content
+                        "message": current_assistant_content
                     })
                     current_assistant_content = ""
                     
@@ -87,7 +87,7 @@ def call_agent(expert: str, prompt: str) -> dict:
             if chunk_data.get('role') == 'tool_call':
                 conversation_history.append({
                     "role": "tool",
-                    "content": chunk_data.get('content', '')
+                    "message": chunk_data.get('content', '')
                 })
                 logger.info(f"Tool call result: {chunk_data.get('content')}")
                 
@@ -96,9 +96,9 @@ def call_agent(expert: str, prompt: str) -> dict:
     
     # The final_answer is the last assistant message in the history
     final_answer = ""
-    for message in reversed(conversation_history):
-        if message["role"] == "assistant":
-            final_answer = message["content"]
+    for entry in reversed(conversation_history):
+        if entry["role"] == "assistant":
+            final_answer = entry["message"]
             break
             
     logger.info(f"FULL HISTORY: {conversation_history}")

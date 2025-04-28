@@ -4,19 +4,23 @@ def tools_to_string(tools_dict, available_tools=None):
     
     Args:
         tools_dict (dict): Dictionary containing tool definitions.
-        available_tools (list, optional): List of tool names to include. If None, all tools are included.
+        available_tools (list, optional): List of tool names to include. If None, no tools will be included.
         
     Returns:
-        str: Formatted string describing all tools.
+        str: Formatted string describing the specified tools.
     """
     result = ""
     
+    # If available_tools is None, return empty string (redundant safety check)
+    if available_tools is None:
+        return ""
+        
     # Iterate through all tool categories
     for category, category_tools in tools_dict.items():
         # Iterate through each tool in the category
         for tool_name, tool_info in category_tools.items():
-            # Skip tools not in available_tools if available_tools is provided
-            if available_tools is not None and tool_name not in available_tools:
+            # Skip tools not in available_tools
+            if tool_name not in available_tools:
                 continue
                 
             # Add tool name and description
@@ -209,11 +213,15 @@ def list_tools(available_tools=None):
     Get a formatted string description of available tools.
     
     Args:
-        available_tools (list, optional): List of tool names to include. If None, all tools are included.
+        available_tools (list, optional): List of tool names to include. If None, no tools are included.
         
     Returns:
         str: Formatted string describing the specified tools.
     """
+    # If available_tools is None, return an empty string (no tools)
+    if available_tools is None:
+        return ""
+        
     tools_dict = get_tools_dict()
     return tools_to_string(tools_dict, available_tools)
 
