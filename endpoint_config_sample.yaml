@@ -1,7 +1,11 @@
 Endpoints:
+  - Name: "Bedrock - NovaPro"
+    Host: "http://54.255.252.95:8069/api/v1"
+    Model: "us.amazon.nova-pro-v1:0"
+    ApiKey: BEDROCK_PROXY_API_KEY
   - Name: "DashScope"
     Host: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-    Model: "qwen-max-latest"
+    Model: "qwen-plus"
     ApiKey: DASHSCOPE_API_KEY
   - Name: "OpenAI"
     Host: "https://api.openai.com/v1"

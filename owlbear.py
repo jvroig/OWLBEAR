@@ -99,8 +99,16 @@ class WorkflowEngine:
         if input_item in self.string_vars:
             return self.string_vars[input_item]
         elif input_item in self.output_vars:
-            # If this is an output reference, get just the content (not metadata)
-            return self.output_vars[input_item].get('content')
+            # If this is an output reference, get the final_answer if available, otherwise fall back to content
+            output_var = self.output_vars[input_item]
+            if 'final_answer' in output_var:
+                return output_var.get('final_answer')
+            elif 'content' in output_var:
+                # For backward compatibility
+                return output_var.get('content')
+            else:
+                logger.warning(f"Output variable {input_item} has no final_answer or content field")
+                return ""
         else:
             # Check if this is a file reference that needs path updating
             if input_item.endswith('.yaml') and not os.path.exists(input_item):
@@ -110,7 +118,11 @@ class WorkflowEngine:
                     try:
                         with open(output_path, 'r') as file:
                             data = yaml.safe_load(file)
-                            return data.get('content', '')
+                            # Try to get final_answer first, then fall back to content
+                            if 'final_answer' in data:
+                                return data.get('final_answer', '')
+                            else:
+                                return data.get('content', '')
                     except Exception as e:
                         logger.error(f"Failed to read yaml file {output_path}: {str(e)}")
             

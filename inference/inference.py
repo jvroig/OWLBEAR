@@ -35,7 +35,7 @@ else:
     logger.error("Improperly configured endpoint_config.yaml!")
     exit()
 
-def call_agent(expert: str, prompt: str) -> str:
+def call_agent(expert: str, prompt: str) -> dict:
     """
     Call an LLM expert with the given prompt.
     
@@ -44,7 +44,7 @@ def call_agent(expert: str, prompt: str) -> str:
         prompt: The full prompt text to send to the expert
         
     Returns:
-        str: The response from the expert
+        dict: Dictionary containing history (full conversation) and final_answer
     """
     logger.info(f"Calling expert: {expert} with prompt length: {len(prompt)}")
     
@@ -55,26 +55,59 @@ def call_agent(expert: str, prompt: str) -> str:
     response_generator = inference_loop(expert_data, messages)
     
     # Process the streaming response
-    full_response = ""
+    conversation_history = []
+    
+    # Add initial user query
+    conversation_history.append({
+        "role": "user",
+        "content": prompt
+    })
+    
+    current_assistant_content = ""
+    
     for chunk in response_generator:
         try:
             # Parse the JSON chunk
             chunk_data = json.loads(chunk.strip())
             
-            #FIXME: We should also log the tool calls, not just assistant messages
             # If it's an assistant content chunk, accumulate it
             if chunk_data.get('role') == 'assistant' and chunk_data.get('type') == 'chunk':
-                full_response += chunk_data.get('content', '')
+                current_assistant_content += chunk_data.get('content', '')
                 
-            # Optionally handle tool calls if needed at this level
+            # If it's a completion signal, add the accumulated assistant content to history
+            if chunk_data.get('role') == 'assistant' and chunk_data.get('type') == 'done':
+                if current_assistant_content:
+                    conversation_history.append({
+                        "role": "assistant",
+                        "content": current_assistant_content
+                    })
+                    current_assistant_content = ""
+                    
+            # Handle tool calls
             if chunk_data.get('role') == 'tool_call':
+                conversation_history.append({
+                    "role": "tool",
+                    "content": chunk_data.get('content', '')
+                })
                 logger.info(f"Tool call result: {chunk_data.get('content')}")
-                full_response += chunk_data.get('content', '')
+                
         except json.JSONDecodeError:
             logger.error(f"Failed to parse chunk: {chunk}")
     
-    logger.info(f"FULL RESPONSE: {full_response}")
-    return full_response
+    # The final_answer is the last assistant message in the history
+    final_answer = ""
+    for message in reversed(conversation_history):
+        if message["role"] == "assistant":
+            final_answer = message["content"]
+            break
+            
+    logger.info(f"FULL HISTORY: {conversation_history}")
+    logger.info(f"FINAL ANSWER: {final_answer}")
+    
+    return {
+        "history": conversation_history,
+        "final_answer": final_answer
+    }
 
 
 

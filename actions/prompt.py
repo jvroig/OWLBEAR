@@ -33,12 +33,13 @@ def execute_prompt_action(action: Dict[str, Any], context: Dict[str, Any]) -> bo
         resolved_inputs = [resolve_input(input_item) for input_item in inputs]
         full_prompt = "\n".join(resolved_inputs)
         
-        # Call the expert
-        response = call_agent(expert, full_prompt)
+        # Call the expert - now returning dict with history and final_answer
+        response_data = call_agent(expert, full_prompt)
         
-        # Save the output
+        # Save the output with the new structure
         output_data = {
-            'content': response,
+            'history': response_data['history'],
+            'final_answer': response_data['final_answer'],
             'timestamp': time.time(),
             'expert': expert,
             'action_type': 'PROMPT',

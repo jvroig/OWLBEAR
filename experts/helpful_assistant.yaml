@@ -6,7 +6,3 @@ ToolsAvailable:
   - read_file
   - create_directory
   - list_directory
-Endpoint:
-  Host: ""
-  Model: ""
-  ApiKey: ""

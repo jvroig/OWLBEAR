@@ -40,17 +40,19 @@ def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tu
         # Add explicit instructions for the decision
         decision_prompt = f"{full_prompt}\n\nBased on the above, please respond with only TRUE or FALSE."
         
-        # Call the expert
+        # Call the expert - now returning dict with history and final_answer
         logger.info(f"Step {step_number}: Calling expert '{expert}' for DECIDE action")
-        response = call_agent(expert, decision_prompt)
+        response_data = call_agent(expert, decision_prompt)
         
-        # Parse the response (in a real implementation, ensure the model returns TRUE/FALSE)
+        # Parse the final_answer (in a real implementation, ensure the model returns TRUE/FALSE)
+        response = response_data['final_answer']
         decision = 'TRUE' in response.upper()
         logger.info(f"Step {step_number}: Received decision: {decision} from response: '{response.strip()}'")
         
-        # Save the output
+        # Save the output with the new structure
         output_data = {
-            'content': response,
+            'history': response_data['history'],
+            'final_answer': response_data['final_answer'],
             'decision': decision,
             'timestamp': time.time(),
             'expert': expert,

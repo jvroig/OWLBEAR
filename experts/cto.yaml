@@ -7,7 +7,3 @@ ToolsAvailable:
   - create_directory
   - list_directory
   - brave_web_search
-Endpoint:
-  Host: ""
-  Model: ""
-  ApiKey: DASHSCOPE_API_KEY

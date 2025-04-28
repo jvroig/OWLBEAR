@@ -8,7 +8,3 @@ ToolsAvailable:
   - list_directory
   - python_execute_file
   - python_check_syntax
-Endpoint:
-  Host: ""
-  Model: ""
-  ApiKey: ""
