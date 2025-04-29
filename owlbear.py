@@ -21,9 +21,16 @@ load_dotenv()
 
 
 class WorkflowEngine:
-    def __init__(self, workflow_path: str, user_input: Optional[str] = None):
-        """Initialize the workflow engine with a YAML workflow definition file."""
+    def __init__(self, workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None):
+        """Initialize the workflow engine with a YAML workflow definition file.
+        
+        Args:
+            workflow_path: Path to the workflow YAML file
+            user_input: Optional user input to be stored as STR_USER_INPUT
+            strings_path: Optional path to a separate YAML file containing string variables
+        """
         self.workflow_path = workflow_path
+        self.strings_path = strings_path
         self.workflow = None
         self.string_vars = {}
         self.output_vars = {}
@@ -68,31 +75,85 @@ class WorkflowEngine:
     def load_workflow(self) -> bool:
         """Load and validate the workflow YAML file."""
         try:
+            # Load workflow file
             with open(self.workflow_path, 'r') as file:
                 self.workflow = yaml.safe_load(file)
             
-            # Basic validation
-            if 'STRINGS' not in self.workflow:
-                logger.warning("No STRINGS section found in workflow")
-                self.string_vars = {}
+            # Load strings from separate file if provided
+            if self.strings_path:
+                logger.info(f"Loading strings from separate file: {self.strings_path}")
+                try:
+                    with open(self.strings_path, 'r') as file:
+                        strings_data = yaml.safe_load(file)
+                    self.string_vars = strings_data
+                    logger.info(f"Loaded {len(self.string_vars)} strings from {self.strings_path}")
+                except Exception as e:
+                    logger.error(f"Failed to load strings file {self.strings_path}: {str(e)}")
+                    return False
             else:
-                self.string_vars = self.workflow['STRINGS']
+                # Fall back to STRINGS section in workflow file
+                if 'STRINGS' not in self.workflow:
+                    logger.warning("No STRINGS section found in workflow and no strings file provided")
+                    self.string_vars = {}
+                else:
+                    self.string_vars = self.workflow['STRINGS']
+                    # Remove STRINGS section from workflow to maintain clean separation
+                    del self.workflow['STRINGS']
             
+            # Basic workflow validation
             if 'ACTIONS' not in self.workflow or not self.workflow['ACTIONS']:
                 logger.error("No ACTIONS section found in workflow or ACTIONS is empty")
                 return False
 
+            # Always ensure STR_USER_INPUT exists
             if self.user_input:
                 self.string_vars["STR_USER_INPUT"] = self.user_input
-            # Otherwise, ensure it exists with empty string if not defined
             elif "STR_USER_INPUT" not in self.string_vars:
                 self.string_vars["STR_USER_INPUT"] = ""
+
+            # Validate that all required strings exist
+            required_strings = self._extract_required_strings()
+            missing_strings = [s for s in required_strings if s not in self.string_vars]
+            if missing_strings:
+                logger.error(f"Missing required strings in workflow: {', '.join(missing_strings)}")
+                logger.error(f"Available strings: {', '.join(self.string_vars.keys())}")
+                return False
 
             logger.info(f"Loaded workflow with {len(self.workflow['ACTIONS'])} actions")
             return True
         except Exception as e:
             logger.error(f"Failed to load workflow: {str(e)}")
             return False
+            
+    def _extract_required_strings(self) -> List[str]:
+        """Extract all string variable references from the workflow that need to be resolved.
+        
+        Returns:
+            List of string variable names that are referenced in the workflow
+        """
+        required_strings = set()
+        
+        if not self.workflow or 'ACTIONS' not in self.workflow:
+            return list(required_strings)
+            
+        # Iterate through all actions to find string references
+        for action in self.workflow['ACTIONS']:
+            action_type = list(action.keys())[0]
+            action_data = action[action_type]
+            
+            # Handle string references in inputs
+            if 'inputs' in action_data:
+                for input_item in action_data['inputs']:
+                    # Check if this is a potential string reference
+                    if isinstance(input_item, str) and input_item.startswith('STR_'):
+                        required_strings.add(input_item)
+        
+        # Always include STR_USER_INPUT as a special case
+        if 'STR_USER_INPUT' not in required_strings:
+            required_strings.add('STR_USER_INPUT')
+            
+        logger.info(f"Found {len(required_strings)} required strings in workflow: {', '.join(required_strings)}")
+        return list(required_strings)
     
     def resolve_input(self, input_item: str) -> str:
         """Resolve a string input, which could be a variable reference or literal."""
@@ -312,21 +373,39 @@ class WorkflowEngine:
         return True
 
 
-def run_workflow(workflow_path: str) -> bool:
-    """Helper function to run a workflow from a file path."""
-    engine = WorkflowEngine(workflow_path)
+def run_workflow(workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None) -> bool:
+    """Helper function to run a workflow from a file path.
+    
+    Args:
+        workflow_path: Path to the workflow YAML file
+        user_input: Optional user input to be stored as STR_USER_INPUT
+        strings_path: Optional path to a separate YAML file containing string variables
+        
+    Returns:
+        bool: True if the workflow was executed successfully, False otherwise
+    """
+    engine = WorkflowEngine(workflow_path, user_input, strings_path)
     return engine.run()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python owlbear.py <workflow_yaml_path> [user_prompt]")
-        sys.exit(1)
+    import argparse
     
-    workflow_path = sys.argv[1]
-    user_input = sys.argv[2] if len(sys.argv) > 2 else None
+    parser = argparse.ArgumentParser(description='OWLBEAR: Orchestrated Workflow Logic with Bespoke Experts for Agentic Routines')
+    parser.add_argument('workflow', help='Path to the workflow YAML file')
+    parser.add_argument('--user-input', '-u', help='User input to be stored as STR_USER_INPUT')
+    parser.add_argument('--strings', '-s', help='Path to a separate YAML file containing string variables. This allows decoupling string variables from workflow definitions.')
     
-    engine = WorkflowEngine(workflow_path, user_input)
+    args = parser.parse_args()
+    
+    # Log the parameters
+    logger.info(f"Starting workflow: {args.workflow}")
+    if args.strings:
+        logger.info(f"Using strings file: {args.strings}")
+    if args.user_input:
+        logger.info(f"With user input: {args.user_input}")
+    
+    engine = WorkflowEngine(args.workflow, args.user_input, args.strings)
     success = engine.run()
     
     if success:

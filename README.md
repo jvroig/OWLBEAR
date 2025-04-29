@@ -47,12 +47,29 @@ To run one of the sample workflows:
 ```bash
 python3 owlbear.py workflows/databreach.yml
 ```
-In this simple example, 3 experts work together to create a data breach response plan:
+
+You can also provide user input via the command line:
+```bash
+python3 owlbear.py workflows/flow_with_user_input.yml --user-input "What is the capital of France?"
+```
+
+### Using External String Variables
+You can decouple string variables from workflow definitions by storing them in a separate YAML file:
+```bash
+python3 owlbear.py workflows/flow_external_strings.yml --strings strings_sample.yaml
+```
+
+This separation allows you to:
+- Reuse the same string variables across multiple workflows
+- Change string variables without modifying workflow definitions
+- Maintain cleaner workflow files that focus only on action sequences
+
+In this simple example from databreach.yml, 3 experts work together to create a data breach response plan:
 - CEO
 - Strategic Thinking Partner
 - Ethical Decision Making Counselor
 
-After that runs, you can view the outputs in the `outputs/databreach_[timestamp]/` folder
+After a workflow runs, you can view the outputs in the `outputs/[workflow_name]_[timestamp]/` folder
 
 ## Experts
 You can define your own AI Experts in the `experts` folder.
