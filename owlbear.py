@@ -36,6 +36,7 @@ class WorkflowEngine:
         self.output_vars = {}
         self.current_step = 0
         self.user_input = user_input
+        self.variables = {}  # Store variables for template substitution
 
         # Get workflow name from file path
         workflow_name = os.path.basename(workflow_path).split('.')[0]
@@ -85,7 +86,17 @@ class WorkflowEngine:
                 try:
                     with open(self.strings_path, 'r') as file:
                         strings_data = yaml.safe_load(file)
-                    self.string_vars = strings_data
+                    
+                    # Extract variables if present
+                    variables = {}
+                    if 'VARIABLES' in strings_data:
+                        variables = strings_data.pop('VARIABLES')
+                        logger.info(f"Loaded {len(variables)} variables from {self.strings_path}")
+                        # Store variables for use in resolve_input
+                        self.variables.update(variables)
+                    
+                    # Process string variables with variable substitution
+                    self.string_vars = self._process_variables(strings_data, variables)
                     logger.info(f"Loaded {len(self.string_vars)} strings from {self.strings_path}")
                 except Exception as e:
                     logger.error(f"Failed to load strings file {self.strings_path}: {str(e)}")
@@ -96,7 +107,17 @@ class WorkflowEngine:
                     logger.warning("No STRINGS section found in workflow and no strings file provided")
                     self.string_vars = {}
                 else:
-                    self.string_vars = self.workflow['STRINGS']
+                    strings_data = self.workflow['STRINGS']
+                    # Extract variables if present
+                    variables = {}
+                    if 'VARIABLES' in strings_data:
+                        variables = strings_data.pop('VARIABLES')
+                        logger.info(f"Loaded {len(variables)} variables from workflow STRINGS section")
+                        # Store variables for use in resolve_input
+                        self.variables.update(variables)
+                    
+                    # Process string variables with variable substitution
+                    self.string_vars = self._process_variables(strings_data, variables)
                     # Remove STRINGS section from workflow to maintain clean separation
                     del self.workflow['STRINGS']
             
@@ -155,8 +176,50 @@ class WorkflowEngine:
         logger.info(f"Found {len(required_strings)} required strings in workflow: {', '.join(required_strings)}")
         return list(required_strings)
     
+    def _process_variables(self, strings_data, variables):
+        """Process string variables, replacing {{variable}} references with their values.
+        
+        Args:
+            strings_data (dict): Dictionary of string variables
+            variables (dict): Dictionary of variable values
+            
+        Returns:
+            dict: Processed string variables with variables substituted
+        """
+        import re
+        
+        # Function to replace {{var}} with its value
+        def replace_variables(text, vars_dict):
+            if not isinstance(text, str):
+                return text
+                
+            def replace_match(match):
+                var_name = match.group(1).strip()
+                if var_name in vars_dict:
+                    return str(vars_dict[var_name])
+                else:
+                    logger.warning(f"Undefined variable in template: {var_name}")
+                    return f"{{{{UNDEFINED:{var_name}}}}}"  # Keep the syntax but mark as undefined
+            
+            pattern = r"\{\{([^}]+)\}\}"
+            return re.sub(pattern, replace_match, text)
+        
+        # Process each string in the dictionary
+        processed_strings = {}
+        for key, value in strings_data.items():
+            processed_strings[key] = replace_variables(value, variables)
+            
+        return processed_strings
+    
     def resolve_input(self, input_item: str) -> str:
-        """Resolve a string input, which could be a variable reference or literal."""
+        """Resolve a string input, which could be a variable reference or literal.
+        
+        If it's a string variable reference (STR_*), return the value.
+        If it's an output reference, return the appropriate field.
+        If it's a literal string containing {{var}} patterns, substitute variables.
+        Otherwise, return the input unchanged.
+        """
+        # First check if this is a string variable reference
         if input_item in self.string_vars:
             return self.string_vars[input_item]
         elif input_item in self.output_vars:
@@ -187,6 +250,18 @@ class WorkflowEngine:
                     except Exception as e:
                         logger.error(f"Failed to read yaml file {output_path}: {str(e)}")
             
+            # If it's a literal string, check for variable patterns
+            if isinstance(input_item, str) and '{{' in input_item and '}}' in input_item:
+                # Apply variable substitution to inline strings
+                logger.info(f"Applying variable substitution to inline string: {input_item}")
+                temp_dict = {'temp_var': input_item}
+                processed = self._process_variables(temp_dict, self.variables)
+                result = processed['temp_var']
+                if result != input_item:
+                    logger.info(f"Variable substitution result: {result}")
+                return result
+            
+            # Otherwise, return as is
             return input_item
     
     def save_output(self, name: str, data: Dict[str, Any]) -> None:

@@ -1,0 +1,12 @@
+VARIABLES:
+  name: "John Doe"
+  company: "Acme Corporation"
+  tool: "OWLBEAR"
+  year: "2025"
+
+STR_intro_prompt: "You are a helpful assistant for {{company}}, and will follow tasks as best as you can."
+STR_greeting: "Hello {{name}}, welcome to {{company}}!"
+STR_tool_info: "{{tool}} is a workflow orchestration engine developed in {{year}}."
+STR_delimiter: "*********************************************"
+STR_artifacts: "artifacts/final_answer.md"
+STR_USER_INPUT: "" # Default empty value if not provided via CLI

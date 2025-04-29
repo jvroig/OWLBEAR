@@ -1,0 +1,27 @@
+STRINGS:
+  VARIABLES:
+    name: "Alex Smith"
+    company: "TechCorp"
+    project: "Data Analysis"
+  
+  STR_intro: "Hello {{name}}, welcome to the {{project}} project at {{company}}."
+  STR_task: "Your task is to analyze data for {{company}}'s {{project}} initiative."
+  STR_delimiter: "====================================="
+
+ACTIONS:
+  - PROMPT:
+      expert: "HelpfulAssistant"
+      inputs:
+        - STR_intro
+        - STR_task
+        - "Please provide some initial thoughts on this task."
+      output: step1
+  - PROMPT:
+      expert: "HelpfulAssistant"
+      inputs:
+        - "Based on your initial thoughts:"
+        - STR_delimiter
+        - step1
+        - STR_delimiter
+        - "Please outline a detailed approach for {{name}} to complete the {{project}} task."
+      output: step2

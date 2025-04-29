@@ -56,13 +56,51 @@ python3 owlbear.py workflows/flow_with_user_input.yml --user-input "What is the 
 ### Using External String Variables
 You can decouple string variables from workflow definitions by storing them in a separate YAML file:
 ```bash
-python3 owlbear.py workflows/flow_external_strings.yml --strings strings_sample.yaml
+python3 owlbear.py workflows/sequences/flow_external_strings.yml --strings workflows/strings/strings_sample.yaml
 ```
 
 This separation allows you to:
 - Reuse the same string variables across multiple workflows
 - Change string variables without modifying workflow definitions
 - Maintain cleaner workflow files that focus only on action sequences
+
+### Using Template Variables in Strings
+OWLBEAR supports template variables within string definitions using double curly braces syntax `{{variable_name}}`. This makes string management even more flexible:
+
+```yaml
+# Example strings file with variables
+VARIABLES:
+  name: "John Doe"
+  company: "Acme Corporation"
+  tool: "OWLBEAR"
+
+STR_greeting: "Hello {{name}}, welcome to {{company}}!"
+STR_tool_info: "{{tool}} is a workflow orchestration engine."
+```
+
+Variables can be used in any string definition and will be automatically substituted when the workflow runs. You can use variables in both external string files and embedded STRINGS sections. Variables offer many benefits:
+
+- Create reusable template phrases with customizable placeholders
+- Centralize configuration values that appear in multiple strings
+- Easily update values across an entire workflow by changing a single variable
+- Make workflows more maintainable and less error-prone
+
+Variables can be used in any string where the variable appears inside double curly braces, including in the inputs to PROMPT and DECIDE actions. The variables will be substituted in all of these contexts:
+
+1. In string definitions in the STRINGS section or external strings file
+2. In literal strings within workflow actions (like PROMPT inputs)
+3. In any string returned by previous actions
+
+Example of inline variable usage in a workflow action:
+```yaml
+ACTIONS:
+  - PROMPT:
+      expert: "HelpfulAssistant"
+      inputs:
+        - STR_greeting
+        - "Please tell {{name}} about the {{project}} at {{company}}."
+      output: step1
+```
 
 In this simple example from databreach.yml, 3 experts work together to create a data breach response plan:
 - CEO
