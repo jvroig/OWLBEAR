@@ -195,7 +195,7 @@ ACTIONS:
 Run that with:
 
 ```bash
-python3 owlbear.py workflows/helloworld.yml
+python3 owlbear.py workflows/sequences/helloworld.yml
 ```
 
 After that executes, inside `outputs/helloworld_[timestamp]/` you will find a `hello_world.yml` file containing something like this:
@@ -230,7 +230,7 @@ ACTIONS:
 Run that with:
 
 ```bash
-python3 owlbear.py workflows/test.yml
+python3 owlbear.py workflows/sequences/test.yml
 ```
 
 After that executes, inside `outputs/test_[timestamp]/` you will find a `test01.yml` file containing something like this:
@@ -326,7 +326,7 @@ In this simple example, 3 experts work together to create a data breach response
 - Strategic Thinking Partner
 - Ethical Decision Making Counselor
 
-File: `workflows/databreach.yml`
+File: `workflows/sequences/databreach.yml`
 ```yaml
 STRINGS:
   STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
@@ -392,7 +392,7 @@ All of the intermediate and final outputs can be seen in the `outputs/databreach
 ### Example 4: Data Breach Response Plan Collaboration
 In this simple example, we have only one expert, but it will use tools to create a report file directly instead of just having it in its text response.
 
-File: `workflows/report_creation.yml`
+File: `workflows/sequences/report_creation.yml`
 ```yaml
 STRINGS:
   STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
@@ -421,7 +421,7 @@ After this executes, you will see an `artifacts` folder created inside of OWLBEA
 
 This is a more complex example that shows 3 tool-enabled agents working together.
 
-File: `workflows/web_research.yml`
+File: `workflows/sequences/web_research.yml`
 ```yaml
 STRINGS:
   STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
