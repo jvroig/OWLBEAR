@@ -1,0 +1,39 @@
+# Sample workflow with deliberate errors to test validation
+STRINGS:
+  STR_correct_string: "This string is correctly defined."
+  STR_with_variable: "Hello, my name is {{name}} and I work at {{company}}."
+
+  # This string is referenced in the workflow but has a typo in its name
+  STR_misnamed_stirng: "This string has a typo in its name (stirng instead of string)."
+
+VARIABLES:
+  name: "John Doe"
+  # Missing 'company' variable which is referenced in STR_with_variable
+
+ACTIONS:
+  # Action with missing 'output' field
+  - PROMPT:
+      expert: "HelpfulAssistant"
+      inputs:
+        - STR_correct_string
+        - "This is a direct string without a reference"
+        - STR_typo_reference  # This string doesn't exist (typo in name)
+      # Missing 'output' field
+
+  # DECIDE action with out-of-range loopback value
+  - DECIDE:
+      expert: "DecisionMaker"
+      inputs:
+        - "Is this condition true?"
+        - STR_correct_string
+      output: decision1
+      loopback: 5  # Out of range (there are only 3 actions)
+
+  # Action that references missing output from earlier step
+  - PROMPT:
+      expert: "Summarizer"
+      inputs:
+        - "Summarize the previous outputs:"
+        - nonexistent_output  # This output doesn't exist
+        - STR_with_variable  # Uses variable that isn't defined (company)
+      output: final_summary

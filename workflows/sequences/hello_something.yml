@@ -1,0 +1,8 @@
+ACTIONS:
+  - PROMPT:
+      expert: CEO
+      inputs:
+        - "Please say:"
+        - STR_message
+        - "[This is a message from {{name}} of {{tool}}]"
+      output: hello_world

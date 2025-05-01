@@ -12,6 +12,7 @@ Whether you're automating business processes, solving complex problems, or foste
 - Modular Expert System : Leverage a library of pre-defined experts (e.g., Executive Coach, Strategic Thinking Partner,Communication Strategist) or create your own bespoke experts tailored to your needs.
 - Customizable Endpoints : Connect to various LLMs and APIs by configuring endpoints for each expert.
 - Orchestrated Workflows : Seamlessly integrate multiple experts into cohesive workflows that align with your business objectives.
+- Workflow Validation : Validate workflows before execution to catch errors, expand variables, and provide human-readable documentation.
 - Equip Agents with Tools : Allow your experts to be more autonomous and affect their environment using tools. 
 - Agentic Routines : Enable AI agents to execute tasks autonomously, reason through challenges, and adapt to dynamic environments by combining orchestrated workflows with tool-using experts.
 
@@ -43,10 +44,34 @@ In the future, fallback will be implemented to use the additional endpoints.
 5. Create a `.env` file in the project's root directory to place your API KEY. See "Experts" section for matching API Key values in .env with endpoint config. 
 
 ## Usage
+
+### Running Workflows
 To run one of the sample workflows:
 ```bash
-python3 owlbear.py workflows/databreach.yml
+python3 owlbear.py workflows/sequences/helloworld.yml
 ```
+
+### Workflow Validation
+Before running complex workflows, you can validate them to catch potential errors:
+
+```bash
+# Validate only (without executing the workflow)
+python3 owlbear.py workflows/sequences/variables_demo.yml --strings workflows/strings/variables_example.yaml --validate-only
+
+# Validate as part of normal execution (happens by default)
+python3 owlbear.py workflows/sequences/variables_demo.yml --strings workflows/strings/variables_example.yaml
+
+# Skip validation and execute directly
+python3 owlbear.py workflows/sequences/variables_demo.yml --strings workflows/strings/variables_example.yaml --skip-validation
+```
+
+You can also use the standalone validator tool directly:
+
+```bash
+python3 workflow_validator.py workflows/sequences/variables_demo.yml --strings workflows/strings/variables_example.yaml
+```
+
+The validator generates a human-readable expanded workflow file (`validator.yaml`) with all string references and variables resolved, making it easier to audit and understand the workflow before execution.
 
 You can also provide user input via the command line:
 ```bash

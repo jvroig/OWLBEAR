@@ -2,10 +2,13 @@
 import yaml
 import os
 import time
-from typing import Dict, List, Any, Union, Optional
+from typing import Dict, List, Any, Union, Optional, Tuple
 import logging
 import importlib
 import sys
+
+# Import the workflow validator
+from workflow_validator import validate_workflow
 
 # Import actions
 from actions.prompt import execute_prompt_action
@@ -21,7 +24,7 @@ load_dotenv()
 
 
 class WorkflowEngine:
-    def __init__(self, workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None):
+    def __init__(self, workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None, skip_validation: bool = False):
         """Initialize the workflow engine with a YAML workflow definition file.
         
         Args:
@@ -37,6 +40,8 @@ class WorkflowEngine:
         self.current_step = 0
         self.user_input = user_input
         self.variables = {}  # Store variables for template substitution
+        self.skip_validation = skip_validation
+        self.validated = False
 
         # Get workflow name from file path
         workflow_name = os.path.basename(workflow_path).split('.')[0]
@@ -53,6 +58,9 @@ class WorkflowEngine:
             f.write(f"Workflow Execution Log: {workflow_name} - {timestamp}\n")
             f.write("=" * 80 + "\n\n")
         logger.info(f"Created debug log file: {self.debug_log_path}")
+        
+        # Path to store validator output
+        self.validator_path = ""
         
     def log_debug(self, message: str):
         """Write a debug message to the workflow execution log file."""
@@ -306,10 +314,54 @@ class WorkflowEngine:
             logger.error(f"Failed to save output to {output_path}: {str(e)}")
 
 
+    def validate_workflow(self) -> Tuple[bool, str]:
+        """Validate the workflow before execution.
+        
+        Returns:
+            Tuple[bool, str]: (success, validator_output_path)
+        """
+        if self.validated:
+            return True, self.validator_path
+            
+        if self.skip_validation:
+            logger.info("Skipping workflow validation due to skip_validation flag")
+            self.validated = True
+            return True, ""
+            
+        logger.info("Validating workflow before execution")
+        success, output_path = validate_workflow(
+            self.workflow_path, 
+            self.strings_path, 
+            self.output_dir
+        )
+        
+        self.validated = True
+        self.validator_path = output_path
+        
+        if success:
+            self.log_debug(f"Workflow validation successful. Expanded workflow saved to: {output_path}")
+            logger.info(f"Workflow validation successful. Expanded workflow saved to: {output_path}")
+            # Print a reminder about the validated workflow file
+            workflow_name = os.path.basename(self.workflow_path).split('.')[0]
+            validated_file = f"{workflow_name}_validated.yaml"
+            logger.info(f"You can review the expanded workflow in: {os.path.join(self.output_dir, validated_file)}")
+        else:
+            self.log_debug("Workflow validation failed! See validator output for details.")
+            logger.error("Workflow validation failed! See validator output for details.")
+            
+        return success, output_path
+    
     def run(self) -> bool:
         """Run the entire workflow."""
         if not self.workflow:
             if not self.load_workflow():
+                return False
+                
+        # Validate the workflow before execution
+        if not self.validated and not self.skip_validation:
+            success, _ = self.validate_workflow()
+            if not success:
+                logger.error("Workflow validation failed. Aborting execution.")
                 return False
         
         actions = self.workflow['ACTIONS']
@@ -448,7 +500,7 @@ class WorkflowEngine:
         return True
 
 
-def run_workflow(workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None) -> bool:
+def run_workflow(workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None, skip_validation: bool = False) -> bool:
     """Helper function to run a workflow from a file path.
     
     Args:
@@ -459,7 +511,7 @@ def run_workflow(workflow_path: str, user_input: Optional[str] = None, strings_p
     Returns:
         bool: True if the workflow was executed successfully, False otherwise
     """
-    engine = WorkflowEngine(workflow_path, user_input, strings_path)
+    engine = WorkflowEngine(workflow_path, user_input, strings_path, skip_validation)
     return engine.run()
 
 
@@ -470,6 +522,8 @@ if __name__ == "__main__":
     parser.add_argument('workflow', help='Path to the workflow YAML file')
     parser.add_argument('--user-input', '-u', help='User input to be stored as STR_USER_INPUT')
     parser.add_argument('--strings', '-s', help='Path to a separate YAML file containing string variables. This allows decoupling string variables from workflow definitions.')
+    parser.add_argument('--skip-validation', action='store_true', help='Skip workflow validation before execution')
+    parser.add_argument('--validate-only', action='store_true', help='Only validate the workflow without executing it')
     
     args = parser.parse_args()
     
@@ -479,9 +533,29 @@ if __name__ == "__main__":
         logger.info(f"Using strings file: {args.strings}")
     if args.user_input:
         logger.info(f"With user input: {args.user_input}")
+    if args.skip_validation:
+        logger.info("Skipping workflow validation")
+    if args.validate_only:
+        logger.info("Running in validation-only mode")
     
-    engine = WorkflowEngine(args.workflow, args.user_input, args.strings)
-    success = engine.run()
+    engine = WorkflowEngine(args.workflow, args.user_input, args.strings, args.skip_validation)
+    
+    if args.validate_only:
+        # Run validation only
+        success, validator_path = engine.validate_workflow()
+        if success:
+            workflow_name = os.path.basename(args.workflow).split('.')[0]
+            validated_file = f"{workflow_name}_validated.yaml"
+            output_dir = os.path.dirname(validator_path)
+            print(f"\nWorkflow validation successful!")
+            print(f"Expanded workflow saved to: {validator_path}")
+            print(f"\nUse this command to view the validated workflow:")
+            print(f"cat {validator_path}")
+        else:
+            print("\nWorkflow validation failed! See log for details.")
+    else:
+        # Run the complete workflow
+        success = engine.run()
     
     if success:
         print("Workflow completed successfully!")

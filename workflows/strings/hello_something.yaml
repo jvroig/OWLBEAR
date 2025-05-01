@@ -1,0 +1,9 @@
+STRINGS:
+  VARIABLES:
+    name: "John Doe"
+    company: "Acme Corporation"
+    tool: "OWLBEAR"
+    year: "2025"
+
+  STR_message: "Welcome to {{company}}"
+
