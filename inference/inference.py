@@ -4,7 +4,20 @@ import json
 import time
 import yaml
 import logging
+import sys
+import os
 from . import tools_lib
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import event system
+from events import (
+    emitter,
+    EVENT_TOOL_CALL_START,
+    EVENT_TOOL_CALL_END,
+    EVENT_ERROR
+)
 
 from http import HTTPStatus
 from openai import OpenAI
@@ -185,8 +198,37 @@ def inference_loop(expert_data, messages):
                 tool_input = tool_call_data.get("input", {})
                 print(f"Executing tool: {tool_name} with input: {tool_input}")
                 
-                # Assume `execute_tool` is a predefined function
-                tool_result = execute_tool(tool_name, tool_input)
+                # Emit tool call start event
+                expert_id = expert_data.get("ExpertID", "unknown")
+                emitter.emit_sync(EVENT_TOOL_CALL_START, 
+                                 expert_id=expert_id,
+                                 tool_name=tool_name,
+                                 parameters=tool_input)
+                
+                try:
+                    # Execute the tool
+                    tool_result = execute_tool(tool_name, tool_input)
+                    
+                    # Emit tool call end event
+                    emitter.emit_sync(EVENT_TOOL_CALL_END,
+                                     expert_id=expert_id,
+                                     tool_name=tool_name,
+                                     parameters=tool_input,
+                                     result=tool_result,
+                                     success=True)
+                except Exception as e:
+                    # Emit tool call end event with error
+                    error_msg = f"Error executing tool '{tool_name}': {str(e)}"
+                    emitter.emit_sync(EVENT_TOOL_CALL_END,
+                                     expert_id=expert_id,
+                                     tool_name=tool_name,
+                                     parameters=tool_input,
+                                     result=error_msg,
+                                     success=False,
+                                     error=str(e))
+                    
+                    # Re-raise the exception
+                    raise
 
                 # Add the tool result as a "user" message in the conversation
                 tool_message = f"Tool result: ```{tool_result}```"
@@ -297,9 +339,13 @@ def execute_tool(tool_name, tool_input):
         if callable(tool):
             pass
         else:
-            raise ValueError(f"Unknown tool or uncallable tool: {tool_name}")
+            error_msg = f"Unknown tool or uncallable tool: {tool_name}"
+            emitter.emit_sync(EVENT_ERROR, error_msg)
+            raise ValueError(error_msg)
     else:
-        raise ValueError(f"Unknown tool: {tool_name}")
+        error_msg = f"Unknown tool: {tool_name}"
+        emitter.emit_sync(EVENT_ERROR, error_msg)
+        raise ValueError(error_msg)
 
     try:
         # Execute the tool function with the provided input
@@ -309,7 +355,9 @@ def execute_tool(tool_name, tool_input):
             result = tool(**tool_input)
         return result
     except Exception as e:
-        raise ValueError(f"Error executing tool '{tool_name}': {e}")
+        error_msg = f"Error executing tool '{tool_name}': {e}"
+        emitter.emit_sync(EVENT_ERROR, error_msg)
+        raise ValueError(error_msg)
 
 
 

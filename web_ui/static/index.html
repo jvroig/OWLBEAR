@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OWLBEAR - Enterprise Multi-Agent Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Dark mode styles */
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        
+        .panel {
+            background-color: #1e1e1e;
+            border: 1px solid #333;
+        }
+        
+        .header {
+            background-color: #2d2d2d;
+            border-bottom: 1px solid #444;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Ansi color codes for log formatting */
+        .ansi-black { color: #4e4e4e; }
+        .ansi-red { color: #ff6b68; }
+        .ansi-green { color: #a8ff60; }
+        .ansi-yellow { color: #ffffa6; }
+        .ansi-blue { color: #96cbfe; }
+        .ansi-magenta { color: #ff73fd; }
+        .ansi-cyan { color: #a0d0d0; }
+        .ansi-white { color: #f1f1f1; }
+        
+        /* Animation for "thinking" indicators */
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        
+        .pulse {
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+    <!-- Banner/Header -->
+    <header class="header p-3 flex items-center justify-center">
+        <h1 class="text-xl font-bold">ENTERPRISE MULTI-AGENT DEMO</h1>
+    </header>
+    
+    <!-- Main container -->
+    <main class="flex-grow flex p-2 gap-2">
+        <!-- Left column (stacked panels) -->
+        <div class="w-1/2 flex flex-col gap-2">
+            <!-- Trace History Panel -->
+            <div class="panel rounded-md p-3 h-3/5 flex flex-col">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="font-bold">Execution Trace</h2>
+                    <button id="clearTraceBtn" class="bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-sm">
+                        Clear Trace History
+                    </button>
+                </div>
+                <div id="traceLog" class="flex-grow overflow-auto font-mono text-sm bg-black p-2 rounded">
+                    <!-- Trace logs will be displayed here -->
+                    <div class="text-gray-500 italic">No workflow execution traces yet.</div>
+                </div>
+            </div>
+            
+            <!-- Workflow Controls Panel -->
+            <div class="panel rounded-md p-3 h-2/5 flex flex-col">
+                <h2 class="font-bold mb-2">Workflow Controls</h2>
+                <div class="flex-grow flex flex-col">
+                    <div class="mb-3">
+                        <label for="workflowSelect" class="block mb-1">Select Workflow:</label>
+                        <select id="workflowSelect" class="w-full bg-gray-800 text-white p-2 rounded border border-gray-700">
+                            <option value="">-- Select a workflow --</option>
+                            <!-- Workflows will be populated here -->
+                        </select>
+                    </div>
+                    
+                    <div id="parametersContainer" class="mb-3 hidden">
+                        <h3 class="font-bold mb-1">Parameters:</h3>
+                        <div id="parametersFields" class="space-y-2">
+                            <!-- Parameter fields will be generated here -->
+                        </div>
+                    </div>
+                    
+                    <div class="mt-auto flex gap-2">
+                        <button id="executeBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            Execute Workflow
+                        </button>
+                        <button id="cancelBtn" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded font-bold hidden">
+                            Cancel Execution
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right column (visualization panel) -->
+        <div class="w-1/2">
+            <div class="panel rounded-md p-3 h-full flex flex-col">
+                <h2 class="font-bold mb-2">Agent Visualization</h2>
+                <div id="visualization" class="flex-grow bg-gray-900 rounded flex items-center justify-center">
+                    <!-- Visualization will be rendered here -->
+                    <div class="text-gray-500 italic">Select a workflow to visualize the experts and their interactions.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="header p-2 text-center text-sm text-gray-500">
+        OWLBEAR: Orchestrated Workflow Logic with Bespoke Experts for Agentic Routines
+    </footer>
+    
+    <!-- Scripts -->
+    <script>
+        // Configuration
+        const API_BASE_URL = window.location.origin + '/api';
+        const WS_BASE_URL = window.location.origin.replace('http', 'ws') + '/ws';
+        
+        // DOM elements
+        const traceLogEl = document.getElementById('traceLog');
+        const clearTraceBtnEl = document.getElementById('clearTraceBtn');
+        const workflowSelectEl = document.getElementById('workflowSelect');
+        const parametersContainerEl = document.getElementById('parametersContainer');
+        const parametersFieldsEl = document.getElementById('parametersFields');
+        const executeBtnEl = document.getElementById('executeBtn');
+        const cancelBtnEl = document.getElementById('cancelBtn');
+        const visualizationEl = document.getElementById('visualization');
+        
+        // State
+        let currentWorkflow = null;
+        let currentExecution = null;
+        let websocket = null;
+        let experts = [];
+        
+        // Initialize the application
+        async function init() {
+            await loadWorkflows();
+            await loadExperts();
+            
+            // Event listeners
+            clearTraceBtnEl.addEventListener('click', clearTraceLog);
+            workflowSelectEl.addEventListener('change', handleWorkflowChange);
+            executeBtnEl.addEventListener('click', executeWorkflow);
+            cancelBtnEl.addEventListener('click', cancelWorkflow);
+        }
+        
+        // Load available workflows from the API
+        async function loadWorkflows() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/workflows`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load workflows: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Clear existing options
+                workflowSelectEl.innerHTML = '<option value="">-- Select a workflow --</option>';
+                
+                // Add workflow options
+                data.workflows.forEach(workflow => {
+                    const option = document.createElement('option');
+                    option.value = workflow.id;
+                    option.textContent = workflow.name;
+                    workflowSelectEl.appendChild(option);
+                });
+                
+                // Enable workflow selection
+                workflowSelectEl.disabled = false;
+            } catch (error) {
+                console.error('Error loading workflows:', error);
+                addTraceLog(`Error loading workflows: ${error.message}`, 'error');
+            }
+        }
+        
+        // Load available experts from the API
+        async function loadExperts() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/experts`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load experts: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                experts = data.experts;
+            } catch (error) {
+                console.error('Error loading experts:', error);
+            }
+        }
+        
+        // Handle workflow selection change
+        async function handleWorkflowChange() {
+            const workflowId = workflowSelectEl.value;
+            
+            // Reset parameters and disable execution button
+            parametersContainerEl.classList.add('hidden');
+            parametersFieldsEl.innerHTML = '';
+            executeBtnEl.disabled = true;
+            
+            if (!workflowId) {
+                currentWorkflow = null;
+                resetVisualization();
+                return;
+            }
+            
+            try {
+                // Fetch workflow details
+                const response = await fetch(`${API_BASE_URL}/workflows/${workflowId}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load workflow details: ${response.statusText}`);
+                }
+                
+                const workflow = await response.json();
+                currentWorkflow = workflow;
+                
+                // Generate parameter fields
+                if (workflow.parameters && workflow.parameters.length > 0) {
+                    // Show parameters container
+                    parametersContainerEl.classList.remove('hidden');
+                    
+                    // Create fields for each parameter
+                    workflow.parameters.forEach(param => {
+                        const fieldId = `param-${param.name}`;
+                        const fieldDiv = document.createElement('div');
+                        
+                        const label = document.createElement('label');
+                        label.setAttribute('for', fieldId);
+                        label.textContent = param.description || param.name;
+                        if (param.required) {
+                            const required = document.createElement('span');
+                            required.textContent = ' *';
+                            required.className = 'text-red-500';
+                            label.appendChild(required);
+                        }
+                        label.className = 'block mb-1';
+                        
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.id = fieldId;
+                        input.name = param.name;
+                        input.className = 'w-full bg-gray-800 text-white p-2 rounded border border-gray-700';
+                        input.setAttribute('data-required', param.required ? 'true' : 'false');
+                        
+                        if (param.default_value !== null && param.default_value !== undefined) {
+                            input.value = param.default_value;
+                        }
+                        
+                        fieldDiv.appendChild(label);
+                        fieldDiv.appendChild(input);
+                        parametersFieldsEl.appendChild(fieldDiv);
+                    });
+                }
+                
+                // Enable execution button
+                executeBtnEl.disabled = false;
+                
+                // Update visualization
+                updateVisualization(workflow);
+            } catch (error) {
+                console.error('Error loading workflow details:', error);
+                addTraceLog(`Error loading workflow details: ${error.message}`, 'error');
+            }
+        }
+        
+        // Execute the selected workflow
+        async function executeWorkflow() {
+            if (!currentWorkflow) {
+                return;
+            }
+            
+            // Validate required parameters
+            const missingParams = [];
+            const parameters = {};
+            
+            // Collect parameters from form
+            parametersFieldsEl.querySelectorAll('input').forEach(input => {
+                const name = input.name;
+                const value = input.value.trim();
+                const required = input.getAttribute('data-required') === 'true';
+                
+                // Check if required field is empty
+                if (required && !value) {
+                    missingParams.push(name);
+                }
+                
+                // Add to parameters object
+                parameters[name] = value;
+            });
+            
+            // If missing required parameters, show error
+            if (missingParams.length > 0) {
+                const message = `Missing required parameters: ${missingParams.join(', ')}`;
+                addTraceLog(message, 'error');
+                return;
+            }
+            
+            try {
+                // Disable execute button and show cancel button
+                executeBtnEl.disabled = true;
+                cancelBtnEl.classList.remove('hidden');
+                
+                // Execute the workflow
+                const response = await fetch(`${API_BASE_URL}/workflows/${currentWorkflow.id}/execute`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ parameters })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to execute workflow: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                currentExecution = data.execution_id;
+                
+                // Clear trace log
+                clearTraceLog();
+                
+                // Add initial log message
+                addTraceLog(`Starting execution of workflow: ${currentWorkflow.name}`, 'info');
+                
+                // Connect to WebSocket for real-time updates
+                connectWebSocket(data.execution_id);
+            } catch (error) {
+                console.error('Error executing workflow:', error);
+                addTraceLog(`Error executing workflow: ${error.message}`, 'error');
+                
+                // Re-enable execute button and hide cancel button
+                executeBtnEl.disabled = false;
+                cancelBtnEl.classList.add('hidden');
+            }
+        }
+        
+        // Cancel the current workflow execution
+        async function cancelWorkflow() {
+            if (!currentExecution || !currentWorkflow) {
+                return;
+            }
+            
+            try {
+                // Send cancel request
+                const response = await fetch(`${API_BASE_URL}/workflows/${currentWorkflow.id}/cancel?execution_id=${currentExecution}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to cancel workflow: ${response.statusText}`);
+                }
+                
+                addTraceLog('Workflow execution cancelled by user', 'warning');
+                
+                // Reset execution state
+                resetExecutionState();
+            } catch (error) {
+                console.error('Error cancelling workflow:', error);
+                addTraceLog(`Error cancelling workflow: ${error.message}`, 'error');
+            }
+        }
+        
+        // Connect to WebSocket for real-time execution updates
+        function connectWebSocket(executionId) {
+            // Close existing connection if any
+            if (websocket) {
+                websocket.close();
+            }
+            
+            // Create new WebSocket connection
+            websocket = new WebSocket(`${WS_BASE_URL}/execution/${executionId}`);
+            
+            // WebSocket event handlers
+            websocket.onopen = () => {
+                console.log('WebSocket connection established');
+                addTraceLog('Connected to execution stream', 'info');
+            };
+            
+            websocket.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    handleWebSocketMessage(message);
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
+                }
+            };
+            
+            websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addTraceLog('WebSocket connection error', 'error');
+            };
+            
+            websocket.onclose = () => {
+                console.log('WebSocket connection closed');
+                addTraceLog('Disconnected from execution stream', 'info');
+            };
+        }
+        
+        // Handle WebSocket messages
+        function handleWebSocketMessage(message) {
+            switch (message.type) {
+                case 'log':
+                    addTraceLog(message.data.message);
+                    break;
+                    
+                case 'step_update':
+                    handleStepUpdate(message.data);
+                    break;
+                    
+                case 'tool_call':
+                    handleToolCall(message.data);
+                    break;
+                    
+                case 'execution_status':
+                    handleExecutionStatus(message.data);
+                    break;
+                    
+                case 'error':
+                    addTraceLog(message.data.message, 'error');
+                    break;
+                    
+                case 'health_check':
+                    // Ignore health check messages
+                    break;
+                    
+                default:
+                    console.log('Unknown message type:', message.type);
+            }
+        }
+        
+        // Handle step update messages
+        function handleStepUpdate(data) {
+            const { step_index, action_type, expert_id, status } = data;
+            
+            // Add to trace log
+            addTraceLog(`Step ${step_index + 1}: ${action_type} with expert ${expert_id} - ${status}`, status === 'completed' ? 'success' : 'info');
+            
+            // Update visualization
+            updateExpertStatus(expert_id, status);
+        }
+        
+        // Handle tool call messages
+        function handleToolCall(data) {
+            const { expert_id, tool_name, parameters, result } = data;
+            
+            // Add to trace log
+            addTraceLog(`Expert ${expert_id} called tool: ${tool_name}`, 'info');
+            
+            // If parameters provided, log them
+            if (parameters && Object.keys(parameters).length > 0) {
+                addTraceLog(`Tool parameters: ${JSON.stringify(parameters)}`, 'debug');
+            }
+            
+            // If result provided, log it
+            if (result) {
+                addTraceLog(`Tool result: ${result}`, 'debug');
+            }
+            
+            // Update visualization
+            // This would be implemented in a real visualization system
+        }
+        
+        // Handle execution status messages
+        function handleExecutionStatus(data) {
+            const { status, error } = data;
+            
+            // Add to trace log
+            addTraceLog(`Execution status: ${status}`, status === 'completed' ? 'success' : status === 'failed' ? 'error' : 'info');
+            
+            // If error provided, log it
+            if (error) {
+                addTraceLog(`Error: ${error}`, 'error');
+            }
+            
+            // If execution completed or failed, reset execution state
+            if (['completed', 'failed', 'cancelled'].includes(status)) {
+                resetExecutionState();
+            }
+        }
+        
+        // Add a message to the trace log
+        function addTraceLog(message, level = 'info') {
+            // Create log element
+            const logEl = document.createElement('div');
+            
+            // Set class based on log level
+            logEl.className = `log-${level} mb-1`;
+            
+            // Add timestamp
+            const timestamp = new Date().toLocaleTimeString();
+            const timestampEl = document.createElement('span');
+            timestampEl.className = 'text-gray-500';
+            timestampEl.textContent = `[${timestamp}] `;
+            
+            // Format message based on log level
+            const messageEl = document.createElement('span');
+            switch (level) {
+                case 'error':
+                    messageEl.className = 'ansi-red';
+                    break;
+                case 'warning':
+                    messageEl.className = 'ansi-yellow';
+                    break;
+                case 'success':
+                    messageEl.className = 'ansi-green';
+                    break;
+                case 'debug':
+                    messageEl.className = 'ansi-cyan';
+                    break;
+                case 'info':
+                default:
+                    messageEl.className = 'ansi-white';
+                    break;
+            }
+            messageEl.textContent = message;
+            
+            // Assemble log entry
+            logEl.appendChild(timestampEl);
+            logEl.appendChild(messageEl);
+            
+            // Add to trace log
+            traceLogEl.appendChild(logEl);
+            
+            // Scroll to bottom
+            traceLogEl.scrollTop = traceLogEl.scrollHeight;
+        }
+        
+        // Clear the trace log
+        function clearTraceLog() {
+            traceLogEl.innerHTML = '';
+        }
+        
+        // Reset execution state
+        function resetExecutionState() {
+            // Close WebSocket connection
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+            
+            // Reset current execution
+            currentExecution = null;
+            
+            // Re-enable execute button and hide cancel button
+            executeBtnEl.disabled = false;
+            cancelBtnEl.classList.add('hidden');
+            
+            // Reset expert statuses in visualization
+            resetExpertStatuses();
+        }
+        
+        // Update the visualization with workflow information
+        function updateVisualization(workflow) {
+            // Clear visualization
+            visualizationEl.innerHTML = '';
+            
+            // If no workflow selected, show default message
+            if (!workflow || !workflow.experts || workflow.experts.length === 0) {
+                visualizationEl.innerHTML = '<div class="text-gray-500 italic">Select a workflow to visualize the experts and their interactions.</div>';
+                return;
+            }
+            
+            // Create the visualization container
+            const container = document.createElement('div');
+            container.className = 'flex flex-wrap justify-center gap-4 p-4 w-full h-full overflow-auto';
+            
+            // Create expert elements
+            workflow.experts.forEach(expert => {
+                const expertEl = createExpertElement(expert);
+                container.appendChild(expertEl);
+            });
+            
+            // Add to visualization
+            visualizationEl.appendChild(container);
+        }
+        
+        // Create an expert element for visualization
+        function createExpertElement(expert) {
+            const expertEl = document.createElement('div');
+            expertEl.className = 'expert-node bg-gray-800 rounded-lg p-4 flex flex-col items-center justify-center w-40 h-40 text-center';
+            expertEl.id = `expert-${expert.id}`;
+            
+            // Create icon
+            const iconEl = document.createElement('div');
+            iconEl.className = 'expert-icon bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-xl mb-2';
+            iconEl.textContent = expert.name.charAt(0).toUpperCase();
+            
+            // Create name
+            const nameEl = document.createElement('div');
+            nameEl.className = 'expert-name font-bold mb-1';
+            nameEl.textContent = expert.name;
+            
+            // Create description
+            const descEl = document.createElement('div');
+            descEl.className = 'expert-desc text-xs text-gray-400';
+            descEl.textContent = expert.description;
+            
+            // Create status indicator (initially hidden)
+            const statusEl = document.createElement('div');
+            statusEl.className = 'expert-status mt-2 hidden';
+            statusEl.id = `expert-status-${expert.id}`;
+            
+            // Assemble expert element
+            expertEl.appendChild(iconEl);
+            expertEl.appendChild(nameEl);
+            expertEl.appendChild(descEl);
+            expertEl.appendChild(statusEl);
+            
+            return expertEl;
+        }
+        
+        // Update expert status in visualization
+        function updateExpertStatus(expertId, status) {
+            const statusEl = document.getElementById(`expert-status-${expertId}`);
+            if (!statusEl) return;
+            
+            // Show status element
+            statusEl.classList.remove('hidden');
+            
+            // Update status text and class
+            switch (status) {
+                case 'running':
+                    statusEl.className = 'expert-status mt-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full pulse';
+                    statusEl.textContent = 'Active';
+                    
+                    // Update expert node to show active state
+                    const expertEl = document.getElementById(`expert-${expertId}`);
+                    if (expertEl) {
+                        expertEl.classList.add('ring-2', 'ring-blue-500');
+                    }
+                    break;
+                    
+                case 'completed':
+                    statusEl.className = 'expert-status mt-2 text-xs bg-green-500 text-white px-2 py-1 rounded-full';
+                    statusEl.textContent = 'Completed';
+                    break;
+                    
+                case 'failed':
+                    statusEl.className = 'expert-status mt-2 text-xs bg-red-500 text-white px-2 py-1 rounded-full';
+                    statusEl.textContent = 'Failed';
+                    break;
+                    
+                case 'waiting':
+                default:
+                    statusEl.className = 'expert-status mt-2 text-xs bg-gray-500 text-white px-2 py-1 rounded-full';
+                    statusEl.textContent = 'Waiting';
+                    break;
+            }
+        }
+        
+        // Reset all expert statuses in visualization
+        function resetExpertStatuses() {
+            document.querySelectorAll('.expert-status').forEach(el => {
+                el.classList.add('hidden');
+            });
+            
+            document.querySelectorAll('.expert-node').forEach(el => {
+                el.classList.remove('ring-2', 'ring-blue-500');
+            });
+        }
+        
+        // Reset visualization
+        function resetVisualization() {
+            visualizationEl.innerHTML = '<div class="text-gray-500 italic">Select a workflow to visualize the experts and their interactions.</div>';
+        }
+        
+        // Initialize the application when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

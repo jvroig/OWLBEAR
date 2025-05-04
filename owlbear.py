@@ -6,6 +6,22 @@ from typing import Dict, List, Any, Union, Optional, Tuple
 import logging
 import importlib
 import sys
+import asyncio
+
+# Import event system
+from events import (
+    emitter,
+    EVENT_WORKFLOW_START,
+    EVENT_WORKFLOW_END,
+    EVENT_STEP_START,
+    EVENT_STEP_END,
+    EVENT_EXPERT_START,
+    EVENT_EXPERT_END,
+    EVENT_TOOL_CALL_START,
+    EVENT_TOOL_CALL_END,
+    EVENT_LOG,
+    EVENT_ERROR
+)
 
 # Import the workflow validator
 from workflow_validator import validate_workflow
@@ -24,7 +40,7 @@ load_dotenv()
 
 
 class WorkflowEngine:
-    def __init__(self, workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None, skip_validation: bool = False):
+    def __init__(self, workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None, skip_validation: bool = False, event_logger: Optional[Any] = None):
         """Initialize the workflow engine with a YAML workflow definition file.
         
         Args:
@@ -62,12 +78,28 @@ class WorkflowEngine:
         # Path to store validator output
         self.validator_path = ""
         
+        # Event logger for external event handling
+        self.event_logger = event_logger
+        
     def log_debug(self, message: str):
         """Write a debug message to the workflow execution log file."""
         with open(self.debug_log_path, 'a') as f:
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
             f.write(f"[{timestamp}] {message}\n")
         logger.debug(message)
+        
+        # Emit log event
+        emitter.emit_sync(EVENT_LOG, message, level="DEBUG")
+        
+        # Forward to event logger if available
+        if self.event_logger and hasattr(self.event_logger, 'log_debug'):
+            if asyncio.iscoroutinefunction(self.event_logger.log_debug):
+                # Create a new event loop for async methods
+                loop = asyncio.new_event_loop()
+                loop.run_until_complete(self.event_logger.log_debug(message))
+                loop.close()
+            else:
+                self.event_logger.log_debug(message)
         
     def get_step_type(self, step_index: int) -> str:
         """Get the action type for a given step (0-indexed)"""
@@ -362,10 +394,15 @@ class WorkflowEngine:
             success, _ = self.validate_workflow()
             if not success:
                 logger.error("Workflow validation failed. Aborting execution.")
+                emitter.emit_sync(EVENT_ERROR, "Workflow validation failed. Aborting execution.")
                 return False
         
         actions = self.workflow['ACTIONS']
         self.current_step = 0
+        
+        # Emit workflow start event
+        workflow_id = os.path.basename(self.workflow_path).split('.')[0]
+        emitter.emit_sync(EVENT_WORKFLOW_START, workflow_id=workflow_id, path=self.workflow_path)
         
         # Log workflow starting
         self.log_debug(f"WORKFLOW STARTING WITH {len(actions)} ACTIONS")
@@ -393,6 +430,14 @@ class WorkflowEngine:
             # Log execution with detailed information
             self.log_debug(f"EXECUTING: Step {self.current_step+1} ({action_type}) - Execution #{exec_count[self.current_step]}")
             logger.info(f"Executing step {self.current_step + 1}/{len(actions)}")
+            
+            # Emit step start event
+            expert_id = action_details.get('expert', 'unknown')
+            emitter.emit_sync(EVENT_STEP_START, 
+                step_index=self.current_step, 
+                action_type=action_type, 
+                expert_id=expert_id, 
+                execution_count=exec_count[self.current_step])
             
             # Create context to pass to action handlers
             context = {
@@ -495,6 +540,10 @@ class WorkflowEngine:
             self.log_debug(f"  Step {step+1} ({action_type}): Executed {count} times")
             
         logger.info("Workflow completed successfully")
+        
+        # Emit workflow end event
+        workflow_id = os.path.basename(self.workflow_path).split('.')[0]
+        emitter.emit_sync(EVENT_WORKFLOW_END, workflow_id=workflow_id, success=True)
         
         logger.info("Workflow completed successfully")
         return True

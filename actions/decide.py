@@ -2,6 +2,20 @@
 import logging
 import time
 from typing import Dict, Any, Callable, Tuple, Optional
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import event system
+from events import (
+    emitter,
+    EVENT_STEP_END,
+    EVENT_EXPERT_START,
+    EVENT_EXPERT_END,
+    EVENT_ERROR
+)
 
 logger = logging.getLogger("workflow-engine.decide")
 
@@ -40,9 +54,23 @@ def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tu
         # Add explicit instructions for the decision
         decision_prompt = f"{full_prompt}\n\nBased on the above, please respond with only TRUE or FALSE."
         
+        # Emit expert start event
+        emitter.emit_sync(EVENT_EXPERT_START, expert_id=expert)
+        
         # Call the expert - now returning dict with history and final_answer
         logger.info(f"Step {step_number}: Calling expert '{expert}' for DECIDE action")
-        response_data = call_agent(expert, decision_prompt)
+        try:
+            response_data = call_agent(expert, decision_prompt)
+            
+            # Emit expert end event
+            emitter.emit_sync(EVENT_EXPERT_END, 
+                            expert_id=expert, 
+                            success=True, 
+                            output_length=len(response_data.get('final_answer', '')))
+        except Exception as e:
+            # Emit expert end event with error
+            emitter.emit_sync(EVENT_EXPERT_END, expert_id=expert, success=False, error=str(e))
+            raise
         
         # Parse the final_answer (in a real implementation, ensure the model returns TRUE/FALSE)
         response = response_data['final_answer']
@@ -69,6 +97,15 @@ def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tu
         # Determine next step with detailed logging
         if decision:
             logger.info(f"Step {step_number}: Decision is TRUE - Continuing to next step")
+            
+            # Emit step end event
+            emitter.emit_sync(EVENT_STEP_END, 
+                            step_index=step_number-1, 
+                            action_type='DECIDE', 
+                            expert_id=expert, 
+                            success=True,
+                            decision=True)
+            
             return True, None  # Continue to next step
         else:
             # Fix: return the correct 0-indexed step number
@@ -84,7 +121,29 @@ def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tu
             logger.info(f"=== END DECISION LOOPBACK DETAILS ===")
             
             logger.info(f"Step {step_number}: Decision is FALSE - Looping back to step {loopback} (1-indexed) / {loopback_value} (0-indexed)")
+            
+            # Emit step end event
+            emitter.emit_sync(EVENT_STEP_END, 
+                            step_index=step_number-1, 
+                            action_type='DECIDE', 
+                            expert_id=expert, 
+                            success=True,
+                            decision=False,
+                            loopback_to=loopback_value)
+            
             return True, loopback_value  # Loop back (adjusted for 0-indexing)
     except Exception as e:
         logger.error(f"Step {context['step_number']}: Error in DECIDE action: {str(e)}")
+        
+        # Emit error event
+        emitter.emit_sync(EVENT_ERROR, f"Error in DECIDE action (step {context['step_number']}): {str(e)}")
+        
+        # Emit step end event with failure
+        emitter.emit_sync(EVENT_STEP_END, 
+                        step_index=context['step_number']-1, 
+                        action_type='DECIDE', 
+                        expert_id=expert if 'expert' in locals() else 'unknown', 
+                        success=False,
+                        error=str(e))
+        
         return False, None

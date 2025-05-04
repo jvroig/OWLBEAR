@@ -1,10 +1,3 @@
-# Sample workflow with deliberate errors to test validation
-STRINGS:
-  STR_correct_string: "This string is correctly defined."
-  STR_with_variable: "Hello, my name is {{name}} and I work at {{company}}."
-
-  # This string is referenced in the workflow but has a typo in its name
-  STR_misnamed_stirng: "This string has a typo in its name (stirng instead of string)."
 
 VARIABLES:
   name: "John Doe"
