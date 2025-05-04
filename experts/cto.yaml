@@ -7,3 +7,4 @@ ToolsAvailable:
   - create_directory
   - list_directory
   - brave_web_search
+Icon: cpu

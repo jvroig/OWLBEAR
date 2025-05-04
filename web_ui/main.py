@@ -21,6 +21,7 @@ from .models import (
     ExpertDetailResponse,
     ExecutionListResponse,
     ExecutionDetailResponse,
+    StringsListResponse,
     WebSocketMessage
 )
 from .services.workflow_service import WorkflowService
@@ -70,6 +71,15 @@ async def list_workflows():
     """
     workflows = await workflow_service.list_workflows()
     return WorkflowListResponse(workflows=workflows)
+
+
+@app.get("/api/strings", response_model=StringsListResponse, tags=["Strings"])
+async def list_strings():
+    """
+    List all available strings files in the system.
+    """
+    strings_files = await workflow_service.list_strings_files()
+    return StringsListResponse(strings_files=strings_files)
 
 
 @app.get("/api/workflows/{workflow_id}", response_model=WorkflowDetailResponse, tags=["Workflows"])

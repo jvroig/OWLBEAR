@@ -10,12 +10,22 @@ class Expert(BaseModel):
     name: str = Field(..., description="Display name for the expert")
     description: str = Field(..., description="Short description of the expert's role")
     tools: List[str] = Field(default=[], description="List of tools available to this expert")
+    icon: str = Field(default="user", description="Icon identifier for this expert")
 
 
 class ExpertDetail(Expert):
     """Detailed expert information model"""
     system_prompt: str = Field(..., description="The system prompt used for this expert")
     endpoint: Optional[Dict[str, Any]] = Field(None, description="Endpoint configuration for this expert")
+
+
+class StringsFileSummary(BaseModel):
+    """Summary information about a strings file"""
+    id: str = Field(..., description="Unique identifier for the strings file (filename without extension)")
+    name: str = Field(..., description="Display name for the strings file")
+    description: Optional[str] = Field(None, description="Short description of the strings file")
+    variable_count: Optional[int] = Field(None, description="Number of variables in this strings file")
+    string_count: Optional[int] = Field(None, description="Number of strings in this strings file")
 
 
 class WorkflowSummary(BaseModel):
@@ -25,6 +35,7 @@ class WorkflowSummary(BaseModel):
     description: Optional[str] = Field(None, description="Short description of the workflow")
     expert_count: int = Field(..., description="Number of experts used in this workflow")
     action_count: int = Field(..., description="Number of actions in this workflow")
+    compatible_strings: List[str] = Field(default=[], description="List of compatible strings file IDs")
 
 
 class WorkflowParameter(BaseModel):
@@ -98,6 +109,11 @@ class WorkflowListResponse(BaseModel):
     workflows: List[WorkflowSummary] = Field(..., description="List of available workflows")
 
 
+class StringsListResponse(BaseModel):
+    """Response model for listing strings files"""
+    strings_files: List[StringsFileSummary] = Field(..., description="List of available strings files")
+
+
 class WorkflowDetailResponse(WorkflowDetail):
     """Response model for workflow details"""
     pass
@@ -126,6 +142,7 @@ class ExecutionDetailResponse(ExecutionDetail):
 class WorkflowExecuteRequest(BaseModel):
     """Request model for executing a workflow"""
     parameters: Dict[str, Any] = Field(default={}, description="Parameters for workflow execution")
+    strings_file: Optional[str] = Field(None, description="ID of the strings file to use")
 
 
 # WebSocket message models

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OWLBEAR - Enterprise Multi-Agent Demo</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <style>
         /* Dark mode styles */
         body {
@@ -41,6 +42,31 @@
             background: #555;
         }
         
+        /* Fixed panel heights */
+        .fixed-height {
+            max-height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .trace-panel {
+            flex: 3;
+            min-height: 0;
+            max-height: calc(60vh - 5rem); /* 60% of viewport height minus some space for header/footer */
+        }
+        
+        .controls-panel {
+            flex: 2;
+            min-height: 0;
+            overflow-y: auto;
+        }
+        
+        .trace-content {
+            overflow-y: auto;
+            max-height: 90%;
+        }
+        
         /* Ansi color codes for log formatting */
         .ansi-black { color: #4e4e4e; }
         .ansi-red { color: #ff6b68; }
@@ -57,7 +83,7 @@
             50% { opacity: 1; }
             100% { opacity: 0.4; }
         }
-        
+
         .pulse {
             animation: pulse 1.5s infinite ease-in-out;
         }
@@ -70,33 +96,44 @@
     </header>
     
     <!-- Main container -->
-    <main class="flex-grow flex p-2 gap-2">
+    <main class="flex-grow flex p-2 gap-2 overflow-hidden">
         <!-- Left column (stacked panels) -->
-        <div class="w-1/2 flex flex-col gap-2">
+        <div class="w-1/2 flex flex-col gap-2 fixed-height">
             <!-- Trace History Panel -->
-            <div class="panel rounded-md p-3 h-3/5 flex flex-col">
+            <div class="panel rounded-md p-3 trace-panel">
                 <div class="flex justify-between items-center mb-2">
                     <h2 class="font-bold">Execution Trace</h2>
                     <button id="clearTraceBtn" class="bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-sm">
                         Clear Trace History
                     </button>
                 </div>
-                <div id="traceLog" class="flex-grow overflow-auto font-mono text-sm bg-black p-2 rounded">
+                <div id="traceLog" class="trace-content font-mono text-sm bg-black p-2 rounded h-full">
                     <!-- Trace logs will be displayed here -->
                     <div class="text-gray-500 italic">No workflow execution traces yet.</div>
                 </div>
             </div>
             
             <!-- Workflow Controls Panel -->
-            <div class="panel rounded-md p-3 h-2/5 flex flex-col">
+            <div class="panel rounded-md p-3 controls-panel">
                 <h2 class="font-bold mb-2">Workflow Controls</h2>
-                <div class="flex-grow flex flex-col">
+                <div class="flex-grow flex flex-col overflow-y-auto">
                     <div class="mb-3">
                         <label for="workflowSelect" class="block mb-1">Select Workflow:</label>
                         <select id="workflowSelect" class="w-full bg-gray-800 text-white p-2 rounded border border-gray-700">
                             <option value="">-- Select a workflow --</option>
                             <!-- Workflows will be populated here -->
                         </select>
+                    </div>
+                    
+                    <div id="stringsContainer" class="mb-3 hidden">
+                        <label for="stringsSelect" class="block mb-1">Select Strings File:</label>
+                        <select id="stringsSelect" class="w-full bg-gray-800 text-white p-2 rounded border border-gray-700">
+                            <option value="">-- Use strings from workflow --</option>
+                            <!-- String files will be populated here -->
+                        </select>
+                        <div class="text-xs text-gray-400 mt-1">
+                            String files provide template values used in the workflow.
+                        </div>
                     </div>
                     
                     <div id="parametersContainer" class="mb-3 hidden">
@@ -119,10 +156,10 @@
         </div>
         
         <!-- Right column (visualization panel) -->
-        <div class="w-1/2">
-            <div class="panel rounded-md p-3 h-full flex flex-col">
+        <div class="w-1/2 overflow-hidden">
+            <div class="panel rounded-md p-3 h-full flex flex-col overflow-hidden">
                 <h2 class="font-bold mb-2">Agent Visualization</h2>
-                <div id="visualization" class="flex-grow bg-gray-900 rounded flex items-center justify-center">
+                <div id="visualization" class="flex-grow bg-gray-900 rounded flex items-center justify-center overflow-auto">
                     <!-- Visualization will be rendered here -->
                     <div class="text-gray-500 italic">Select a workflow to visualize the experts and their interactions.</div>
                 </div>
@@ -145,6 +182,8 @@
         const traceLogEl = document.getElementById('traceLog');
         const clearTraceBtnEl = document.getElementById('clearTraceBtn');
         const workflowSelectEl = document.getElementById('workflowSelect');
+        const stringsContainerEl = document.getElementById('stringsContainer');
+        const stringsSelectEl = document.getElementById('stringsSelect');
         const parametersContainerEl = document.getElementById('parametersContainer');
         const parametersFieldsEl = document.getElementById('parametersFields');
         const executeBtnEl = document.getElementById('executeBtn');
@@ -156,15 +195,21 @@
         let currentExecution = null;
         let websocket = null;
         let experts = [];
+        let stringsFiles = [];
+        let compatibleStringsFiles = [];
         
         // Initialize the application
         async function init() {
-            await loadWorkflows();
-            await loadExperts();
+            await Promise.all([
+                loadWorkflows(),
+                loadExperts(),
+                loadStringsFiles()
+            ]);
             
             // Event listeners
             clearTraceBtnEl.addEventListener('click', clearTraceLog);
             workflowSelectEl.addEventListener('change', handleWorkflowChange);
+            stringsSelectEl.addEventListener('change', handleStringsChange);
             executeBtnEl.addEventListener('click', executeWorkflow);
             cancelBtnEl.addEventListener('click', cancelWorkflow);
         }
@@ -187,6 +232,7 @@
                     const option = document.createElement('option');
                     option.value = workflow.id;
                     option.textContent = workflow.name;
+                    option.dataset.compatibleStrings = JSON.stringify(workflow.compatible_strings || []);
                     workflowSelectEl.appendChild(option);
                 });
                 
@@ -213,6 +259,24 @@
             }
         }
         
+        // Load available strings files from the API
+        async function loadStringsFiles() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/strings`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load strings files: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                stringsFiles = data.strings_files;
+                
+                // We'll populate the select element when a workflow is selected
+            } catch (error) {
+                console.error('Error loading strings files:', error);
+                addTraceLog(`Error loading strings files: ${error.message}`, 'error');
+            }
+        }
+        
         // Handle workflow selection change
         async function handleWorkflowChange() {
             const workflowId = workflowSelectEl.value;
@@ -221,6 +285,10 @@
             parametersContainerEl.classList.add('hidden');
             parametersFieldsEl.innerHTML = '';
             executeBtnEl.disabled = true;
+            
+            // Reset strings selection
+            stringsContainerEl.classList.add('hidden');
+            stringsSelectEl.innerHTML = '<option value="">-- Use strings from workflow --</option>';
             
             if (!workflowId) {
                 currentWorkflow = null;
@@ -237,6 +305,9 @@
                 
                 const workflow = await response.json();
                 currentWorkflow = workflow;
+                
+                // Update strings file selection
+                updateStringsSelection(workflowId);
                 
                 // Generate parameter fields
                 if (workflow.parameters && workflow.parameters.length > 0) {
@@ -287,6 +358,47 @@
             }
         }
         
+        // Update strings file selection based on workflow compatibility
+        function updateStringsSelection(workflowId) {
+            // Get compatible strings files from selected workflow
+            const selectedOption = workflowSelectEl.querySelector(`option[value="${workflowId}"]`);
+            const compatibleStrings = JSON.parse(selectedOption.dataset.compatibleStrings || '[]');
+            
+            // Clear existing options
+            stringsSelectEl.innerHTML = '<option value="">-- Use strings from workflow --</option>';
+            
+            // Filter strings files to compatible ones
+            const filteredStringsFiles = stringsFiles.filter(file => 
+                file.id === "" || compatibleStrings.includes(file.id)
+            );
+            
+            // If there are additional strings files beyond the empty option, show the selection
+            if (filteredStringsFiles.length > 1) {
+                stringsContainerEl.classList.remove('hidden');
+                
+                // Add strings file options
+                filteredStringsFiles.forEach(file => {
+                    if (file.id !== "") { // Skip the empty option, we've already added it
+                        const option = document.createElement('option');
+                        option.value = file.id;
+                        option.textContent = file.name;
+                        option.title = file.description;
+                        stringsSelectEl.appendChild(option);
+                    }
+                });
+            } else {
+                stringsContainerEl.classList.add('hidden');
+            }
+        }
+        
+        // Handle strings file selection change
+        function handleStringsChange() {
+            // If needed, we could update parameter fields based on variables in the strings file
+            // For now, we just log the selection
+            const stringsId = stringsSelectEl.value;
+            console.log(`Selected strings file: ${stringsId}`);
+        }
+        
         // Execute the selected workflow
         async function executeWorkflow() {
             if (!currentWorkflow) {
@@ -319,6 +431,17 @@
                 return;
             }
             
+            // Add strings file selection to request if one is selected
+            const stringsFileId = stringsSelectEl.value;
+            const requestData = {
+                parameters: parameters
+            };
+            
+            // Only include strings_file if it's specified
+            if (stringsFileId) {
+                requestData.strings_file = stringsFileId;
+            }
+            
             try {
                 // Disable execute button and show cancel button
                 executeBtnEl.disabled = true;
@@ -330,7 +453,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ parameters })
+                    body: JSON.stringify(requestData)
                 });
                 
                 if (!response.ok) {
@@ -596,6 +719,9 @@
             
             // Add to visualization
             visualizationEl.appendChild(container);
+            
+            // Initialize Feather Icons
+            feather.replace();
         }
         
         // Create an expert element for visualization
@@ -604,20 +730,21 @@
             expertEl.className = 'expert-node bg-gray-800 rounded-lg p-4 flex flex-col items-center justify-center w-40 h-40 text-center';
             expertEl.id = `expert-${expert.id}`;
             
-            // Create icon
+            // Create icon container
             const iconEl = document.createElement('div');
-            iconEl.className = 'expert-icon bg-blue-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-xl mb-2';
-            iconEl.textContent = expert.name.charAt(0).toUpperCase();
+            iconEl.className = 'expert-icon text-gray-400 w-16 h-16 flex items-center justify-center mb-2';
             
-            // Create name
+            // Create SVG icon using Feather Icons
+            const iconSvg = document.createElement('i');
+            // For debugging: console.log("EXPERT ICON for " + expert.name + ": " + expert.icon);
+            iconSvg.setAttribute('data-feather', expert.icon || 'user');
+            iconSvg.className = 'w-8 h-8'; // Set size
+            iconEl.appendChild(iconSvg);
+            
+            // Create name (keep original case)
             const nameEl = document.createElement('div');
             nameEl.className = 'expert-name font-bold mb-1';
             nameEl.textContent = expert.name;
-            
-            // Create description
-            const descEl = document.createElement('div');
-            descEl.className = 'expert-desc text-xs text-gray-400';
-            descEl.textContent = expert.description;
             
             // Create status indicator (initially hidden)
             const statusEl = document.createElement('div');
@@ -627,7 +754,6 @@
             // Assemble expert element
             expertEl.appendChild(iconEl);
             expertEl.appendChild(nameEl);
-            expertEl.appendChild(descEl);
             expertEl.appendChild(statusEl);
             
             return expertEl;
@@ -636,7 +762,11 @@
         // Update expert status in visualization
         function updateExpertStatus(expertId, status) {
             const statusEl = document.getElementById(`expert-status-${expertId}`);
-            if (!statusEl) return;
+            const expertEl = document.getElementById(`expert-${expertId}`);
+            if (!statusEl || !expertEl) return;
+            
+            // Find the icon element
+            const iconEl = expertEl.querySelector('.expert-icon');
             
             // Show status element
             statusEl.classList.remove('hidden');
@@ -644,42 +774,75 @@
             // Update status text and class
             switch (status) {
                 case 'running':
+                    // Update status indicator
                     statusEl.className = 'expert-status mt-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full pulse';
                     statusEl.textContent = 'Active';
                     
                     // Update expert node to show active state
-                    const expertEl = document.getElementById(`expert-${expertId}`);
-                    if (expertEl) {
-                        expertEl.classList.add('ring-2', 'ring-blue-500');
+                    expertEl.classList.add('ring-2', 'ring-blue-500');
+                    
+                    // Highlight the icon
+                    if (iconEl) {
+                        iconEl.classList.remove('text-gray-400');
+                        iconEl.classList.add('text-blue-400');
                     }
                     break;
                     
                 case 'completed':
+                    // Update status indicator
                     statusEl.className = 'expert-status mt-2 text-xs bg-green-500 text-white px-2 py-1 rounded-full';
                     statusEl.textContent = 'Completed';
+                    
+                    // Adjust icon color
+                    if (iconEl) {
+                        iconEl.classList.remove('text-gray-400', 'text-blue-400');
+                        iconEl.classList.add('text-green-400');
+                    }
                     break;
                     
                 case 'failed':
+                    // Update status indicator
                     statusEl.className = 'expert-status mt-2 text-xs bg-red-500 text-white px-2 py-1 rounded-full';
                     statusEl.textContent = 'Failed';
+                    
+                    // Adjust icon color
+                    if (iconEl) {
+                        iconEl.classList.remove('text-gray-400', 'text-blue-400');
+                        iconEl.classList.add('text-red-400');
+                    }
                     break;
                     
                 case 'waiting':
                 default:
+                    // Update status indicator
                     statusEl.className = 'expert-status mt-2 text-xs bg-gray-500 text-white px-2 py-1 rounded-full';
                     statusEl.textContent = 'Waiting';
+                    
+                    // Reset icon color
+                    if (iconEl) {
+                        iconEl.classList.remove('text-blue-400', 'text-green-400', 'text-red-400');
+                        iconEl.classList.add('text-gray-400');
+                    }
                     break;
             }
         }
         
         // Reset all expert statuses in visualization
         function resetExpertStatuses() {
+            // Hide all status indicators
             document.querySelectorAll('.expert-status').forEach(el => {
                 el.classList.add('hidden');
             });
             
+            // Remove active state from expert nodes
             document.querySelectorAll('.expert-node').forEach(el => {
                 el.classList.remove('ring-2', 'ring-blue-500');
+            });
+            
+            // Reset all icons to gray
+            document.querySelectorAll('.expert-icon').forEach(el => {
+                el.classList.remove('text-blue-400', 'text-green-400', 'text-red-400');
+                el.classList.add('text-gray-400');
             });
         }
         

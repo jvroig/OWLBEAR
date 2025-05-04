@@ -48,13 +48,14 @@ class ExpertService:
                     # Create basic expert info
                     experts.append({
                         "id": expert_id,
-                        "name": self._format_expert_name(expert_id),
+                        "name": expert_id,  # Preserve original case
                         "description": description,
-                        "tools": tools
+                        "tools": tools,
+                        "icon": expert_data.get('Icon', 'user')  # Default icon is 'user'
                     })
                     
                     # Cache the expert data
-                    self.experts_cache[expert_id.lower()] = expert_data
+                    self.experts_cache[expert_id] = expert_data
                     
                 except Exception as e:
                     logger.error(f"Error loading expert {filename}: {str(e)}")
@@ -74,6 +75,7 @@ class ExpertService:
         Raises:
             FileNotFoundError: If the expert is not found
         """
+
         # Check cache first
         expert_id_lower = expert_id.lower()
         if expert_id_lower in self.experts_cache:
@@ -91,12 +93,16 @@ class ExpertService:
         # Build response
         endpoint_info = expert_data.get('Endpoint', {})
         
+        # Get icon value
+        icon_value = expert_data.get('Icon', 'user')
+        
         return {
             "id": expert_data['ExpertID'],
-            "name": self._format_expert_name(expert_data['ExpertID']),
+            "name": expert_data['ExpertID'],  # Preserve original case
             "description": expert_data.get('Description', f"Expert {expert_id}"),
             "system_prompt": expert_data['SystemPrompt'],
             "tools": expert_data.get('ToolsAvailable', []),
+            "icon": icon_value,  # Default icon is 'user'
             "endpoint": {
                 "host": endpoint_info.get('Host', None),
                 "model": endpoint_info.get('Model', None)

@@ -29,6 +29,59 @@ class WorkflowService:
         self.event_service = EventService()
         self.expert_service = ExpertService()
         
+    async def list_strings_files(self) -> List[Dict[str, Any]]:
+        """
+        List all available strings files.
+        
+        Returns:
+            List[Dict[str, Any]]: List of strings file information
+        """
+        strings_files = []
+        
+        # Add a "None" option for no strings file
+        strings_files.append({
+            "id": "",
+            "name": "None (use strings from workflow)",
+            "description": "Use strings defined in the workflow YAML file instead of a separate strings file."
+        })
+        
+        # List all YAML files in the strings directory
+        if os.path.exists(self.strings_dir):
+            for filename in os.listdir(self.strings_dir):
+                if filename.endswith(('.yml', '.yaml')):
+                    strings_id = os.path.splitext(filename)[0]
+                    
+                    try:
+                        # Load the strings file to extract metadata
+                        with open(os.path.join(self.strings_dir, filename), 'r') as file:
+                            strings_data = yaml.safe_load(file)
+                        
+                        # Extract strings information
+                        name = strings_id.replace('_', ' ').title()
+                        
+                        # Count variables and strings
+                        variable_count = len(strings_data.get('VARIABLES', {}))
+                        string_count = sum(1 for key in strings_data.keys() if key != 'VARIABLES' and key != 'STRINGS')
+                        
+                        # If it has a nested STRINGS structure, count those too
+                        if 'STRINGS' in strings_data and isinstance(strings_data['STRINGS'], dict):
+                            string_count += sum(1 for key in strings_data['STRINGS'].keys() if key != 'VARIABLES')
+                        
+                        # Create description
+                        description = f"Contains {string_count} strings and {variable_count} variables"
+                        
+                        strings_files.append({
+                            "id": strings_id,
+                            "name": name,
+                            "description": description,
+                            "variable_count": variable_count,
+                            "string_count": string_count
+                        })
+                    except Exception as e:
+                        logger.error(f"Error loading strings file {filename}: {str(e)}")
+        
+        return strings_files
+
     async def list_workflows(self) -> List[Dict[str, Any]]:
         """
         List all available workflows.
@@ -54,12 +107,16 @@ class WorkflowService:
                     expert_count = self._count_unique_experts(workflow_data)
                     action_count = len(workflow_data.get('ACTIONS', []))
                     
+                    # Determine compatible strings files
+                    compatible_strings = await self._find_compatible_strings_files(workflow_id, workflow_data)
+                    
                     workflows.append({
                         "id": workflow_id,
                         "name": name,
                         "description": description,
                         "expert_count": expert_count,
-                        "action_count": action_count
+                        "action_count": action_count,
+                        "compatible_strings": compatible_strings
                     })
                 except Exception as e:
                     logger.error(f"Error loading workflow {filename}: {str(e)}")
@@ -107,7 +164,8 @@ class WorkflowService:
                     "id": expert["id"],
                     "name": expert["name"],
                     "description": expert["description"],
-                    "tools": expert.get("tools", [])
+                    "tools": expert.get("tools", []),
+                    "icon": expert.get("icon", "user")
                 })
             except FileNotFoundError:
                 # Expert not found, but we still include it with minimal info
@@ -115,7 +173,8 @@ class WorkflowService:
                     "id": expert_id,
                     "name": expert_id,
                     "description": f"Expert {expert_id}",
-                    "tools": []
+                    "tools": [],
+                    "icon": "user"  # Default icon for not found experts
                 })
         
         # Extract parameters
@@ -143,6 +202,82 @@ class WorkflowService:
             "has_tools": has_tools
         }
     
+    async def _find_compatible_strings_files(self, workflow_id: str, workflow_data: Dict[str, Any]) -> List[str]:
+        """
+        Find strings files that are compatible with this workflow.
+        
+        Args:
+            workflow_id (str): ID of the workflow
+            workflow_data (Dict[str, Any]): Workflow data
+            
+        Returns:
+            List[str]: List of compatible strings file IDs
+        """
+        required_strings = self._extract_required_strings(workflow_data)
+        compatible_strings = [""]
+        
+        # List all YAML files in the strings directory
+        if os.path.exists(self.strings_dir):
+            for filename in os.listdir(self.strings_dir):
+                if filename.endswith(('.yml', '.yaml')):
+                    strings_id = os.path.splitext(filename)[0]
+                    file_path = os.path.join(self.strings_dir, filename)
+                    
+                    try:
+                        # Load the strings file to check compatibility
+                        with open(file_path, 'r') as file:
+                            strings_data = yaml.safe_load(file)
+                        
+                        # Extract all string keys
+                        string_keys = set()
+                        
+                        # Handle nested STRINGS section
+                        if 'STRINGS' in strings_data and isinstance(strings_data['STRINGS'], dict):
+                            for key in strings_data['STRINGS'].keys():
+                                if key != 'VARIABLES':
+                                    string_keys.add(key)
+                        
+                        # Handle top-level strings
+                        for key in strings_data.keys():
+                            if key != 'VARIABLES' and key != 'STRINGS':
+                                string_keys.add(key)
+                        
+                        # Check if all required strings are present
+                        missing_strings = [s for s in required_strings if s not in string_keys]
+                        if not missing_strings:
+                            compatible_strings.append(strings_id)
+                            
+                    except Exception as e:
+                        logger.error(f"Error checking compatibility for strings file {filename}: {str(e)}")
+        
+        return compatible_strings
+
+    def _extract_required_strings(self, workflow_data: Dict[str, Any]) -> List[str]:
+        """
+        Extract required string references from a workflow.
+        
+        Args:
+            workflow_data (Dict[str, Any]): Workflow data
+            
+        Returns:
+            List[str]: Required string references
+        """
+        required_strings = set()
+        
+        # Iterate through all actions to find string references
+        for action in workflow_data.get('ACTIONS', []):
+            action_type = list(action.keys())[0]
+            action_data = action[action_type]
+            
+            # Handle string references in inputs
+            if 'inputs' in action_data:
+                for input_item in action_data['inputs']:
+                    # Check if this is a potential string reference
+                    if isinstance(input_item, str) and input_item.startswith('STR_'):
+                        required_strings.add(input_item)
+        
+        return list(required_strings)
+
     async def execute_workflow(self, workflow_id: str, parameters: Dict[str, Any]) -> str:
         """
         Execute a workflow with the provided parameters.
@@ -187,7 +322,21 @@ class WorkflowService:
         user_input = self._build_user_input_from_parameters(parameters)
         
         # Determine if there's a strings file to use
-        strings_path = self._find_strings_file(workflow_id)
+        strings_path = None
+        if 'strings_file' in parameters and parameters['strings_file']:
+            strings_id = parameters['strings_file']
+            # Look for the strings file
+            for ext in ['.yml', '.yaml']:
+                path = os.path.join(self.strings_dir, f"{strings_id}{ext}")
+                if os.path.exists(path):
+                    strings_path = path
+                    break
+            
+            if not strings_path:
+                raise ValueError(f"Strings file not found: {strings_id}")
+        else:
+            # Use automatic strings file detection
+            strings_path = self._find_strings_file(workflow_id)
         
         # Start the workflow execution as a background task
         task = asyncio.create_task(

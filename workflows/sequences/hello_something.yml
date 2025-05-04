@@ -1,8 +1,19 @@
 ACTIONS:
   - PROMPT:
+      description: CEO Welcome Message
       expert: CEO
       inputs:
         - "Please say:"
         - STR_message
-        - "[This is a message from {{name}} of {{tool}}]"
+        - "[This is a message from {{ceo_name}} of {{tool}}]"
       output: hello_world
+  - PROMPT:
+      description: CTO Welcome Message
+      expert: CTO
+      inputs:
+        - "Please say:"
+        - STR_message
+        - "[This is a message from {{cto_name}} of {{tool}}]"
+      output: hello_world
+
+

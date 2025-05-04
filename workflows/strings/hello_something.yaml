@@ -1,9 +1,9 @@
-STRINGS:
-  VARIABLES:
-    name: "John Doe"
-    company: "Acme Corporation"
-    tool: "OWLBEAR"
-    year: "2025"
+VARIABLES:
+  ceo_name: "John Bear"
+  cto_name: "Bearn Doe"
+  company: "Acme Corporation"
+  tool: "OWLBEAR"
+  year: "2025"
 
-  STR_message: "Welcome to {{company}}"
+STR_message: "Welcome to {{company}}"
 
