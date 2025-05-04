@@ -195,6 +195,11 @@ app.mount("/static", StaticFiles(directory="web_ui/static"), name="static")
 async def serve_frontend():
     return FileResponse("web_ui/static/index.html")
 
+@app.get("/logo", include_in_schema=False)
+async def get_logo():
+    return FileResponse("web_ui/static/owlbear_logo_head.png")
+
+
 @app.on_event("shutdown")
 async def shutdown_event():
     # Disconnect event connector before shutting down
