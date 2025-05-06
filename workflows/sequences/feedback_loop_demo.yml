@@ -47,7 +47,7 @@ ACTIONS:
       inputs:
         - "Review the CEO's feedback on our blog post draft:"
         - ceo_review
-        - "Does the feedback suggest major structural issues that would require a complete rewrite, or are they minor improvements that could be addressed with targeted edits?"
+        - "Can we proceed directly to final edits based on this feedback, or do we need another review cycle? Assess whether the feedback suggests only minor improvements that can be addressed in a final edit pass."
       output: final_decision
       loopback_target: final_review
       loop_limit: 2
