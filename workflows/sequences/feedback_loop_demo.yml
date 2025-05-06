@@ -1,0 +1,65 @@
+STRINGS:
+  STR_intro_prompt: "We are working on a company blog post about new AI developments. Let's brainstorm some ideas for this post."
+  STR_delimiter: "*********************************************"
+
+ACTIONS:
+  - PROMPT:
+      id: initial_draft
+      expert: "CEO"
+      inputs:
+        - STR_intro_prompt
+        - "Generate a brief outline for a blog post about cutting edge developments in AI in 2025."
+      output: initial_outline
+  
+  - DECIDE:
+      expert: "Strategic Thinking Partner"
+      inputs:
+        - "Please evaluate this blog post outline:"
+        - initial_outline
+        - "Evaluate whether this outline is comprehensive, strategic, and forward-thinking. Does it cover the most important AI developments? Is it well-structured? Would it appeal to our tech-savvy audience?"
+      output: evaluation_result
+      loopback_target: initial_draft
+      loop_limit: 3
+
+  - PROMPT:
+      expert: "Communication Strategist"
+      inputs:
+        - "Here is a blog post outline that has been approved by our Strategic Thinking Partner:"
+        - STR_delimiter
+        - initial_outline
+        - STR_delimiter
+        - "Please expand this into a full blog post draft. Use markdown formatting."
+      output: blog_post_draft
+
+  - PROMPT:
+      id: final_review
+      expert: "CEO"
+      append-history: true
+      append-history-type: LATEST
+      inputs:
+        - "Review the blog post draft below and make suggestions for improvement:"
+        - STR_delimiter
+        - blog_post_draft
+      output: ceo_review
+  
+  - DECIDE:
+      expert: "Strategic Thinking Partner"
+      inputs:
+        - "Review the CEO's feedback on our blog post draft:"
+        - ceo_review
+        - "Does the feedback suggest major structural issues that would require a complete rewrite, or are they minor improvements that could be addressed with targeted edits?"
+      output: final_decision
+      loopback_target: final_review
+      loop_limit: 2
+
+  - PROMPT:
+      expert: "Communication Strategist" 
+      inputs:
+        - "Here is our blog post draft:"
+        - blog_post_draft
+        - STR_delimiter
+        - "And here is the CEO's feedback:"
+        - ceo_review
+        - STR_delimiter
+        - "Please incorporate the CEO's feedback and produce a final version of the blog post. Use markdown formatting."
+      output: final_blog_post

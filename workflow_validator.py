@@ -217,17 +217,50 @@ class WorkflowValidator:
             if action_type == 'PROMPT':
                 if 'inputs' not in action_data or not action_data['inputs']:
                     self.add_warning(f"Action {i+1} (PROMPT) has empty or missing 'inputs'")
+                
+                # Check for append-history flag configuration
+                if 'append-history' in action_data and action_data['append-history']:
+                    if 'append-history-type' in action_data:
+                        append_type = action_data['append-history-type']
+                        if append_type not in ['ALL', 'LATEST']:
+                            self.add_warning(f"Action {i+1} (PROMPT) has invalid 'append-history-type' value: {append_type} (must be 'ALL' or 'LATEST')")
                     
             elif action_type == 'DECIDE':
                 if 'inputs' not in action_data or not action_data['inputs']:
                     self.add_warning(f"Action {i+1} (DECIDE) has empty or missing 'inputs'")
-                    
-                if 'loopback' not in action_data:
-                    self.add_error(f"Action {i+1} (DECIDE) is missing required 'loopback' field")
-                elif not isinstance(action_data['loopback'], int):
-                    self.add_error(f"Action {i+1} (DECIDE) has invalid 'loopback' value: {action_data['loopback']} (must be an integer)")
-                elif action_data['loopback'] < 1 or action_data['loopback'] > len(self.workflow['ACTIONS']):
-                    self.add_error(f"Action {i+1} (DECIDE) has out-of-range 'loopback' value: {action_data['loopback']} (must be between 1 and {len(self.workflow['ACTIONS'])})")
+                
+                # Track all action IDs for validation
+                action_ids = set()
+                for j, act in enumerate(self.workflow['ACTIONS']):
+                    act_type = list(act.keys())[0]
+                    act_data = act[act_type]
+                    if 'id' in act_data:
+                        action_ids.add(act_data['id'])
+                
+                # Validate loopback and loopback_target fields
+                has_loopback = 'loopback' in action_data
+                has_loopback_target = 'loopback_target' in action_data
+                
+                if not has_loopback and not has_loopback_target:
+                    self.add_error(f"Action {i+1} (DECIDE) is missing both 'loopback' and 'loopback_target' fields - one is required")
+                
+                if has_loopback and has_loopback_target:
+                    self.add_warning(f"Action {i+1} (DECIDE) has both 'loopback' and 'loopback_target' defined - only one should be used")
+                
+                # Validate numeric loopback
+                if has_loopback:
+                    if not isinstance(action_data['loopback'], int):
+                        self.add_error(f"Action {i+1} (DECIDE) has invalid 'loopback' value: {action_data['loopback']} (must be an integer)")
+                    elif action_data['loopback'] < 1 or action_data['loopback'] > len(self.workflow['ACTIONS']):
+                        self.add_error(f"Action {i+1} (DECIDE) has out-of-range 'loopback' value: {action_data['loopback']} (must be between 1 and {len(self.workflow['ACTIONS'])})")
+                
+                # Validate string loopback_target
+                if has_loopback_target:
+                    target = action_data['loopback_target']
+                    if not isinstance(target, str):
+                        self.add_error(f"Action {i+1} (DECIDE) has invalid 'loopback_target' value: {target} (must be a string ID)")
+                    elif target not in action_ids:
+                        self.add_error(f"Action {i+1} (DECIDE) has unknown 'loopback_target' ID: '{target}' (must reference an existing action ID)")
             else:
                 self.add_warning(f"Action {i+1} has unknown type: {action_type}")
     
@@ -288,6 +321,14 @@ class WorkflowValidator:
         graph = defaultdict(list)
         decide_steps = {}
         
+        # Create a map of action IDs to step indices
+        action_id_map = {}
+        for i, action in enumerate(self.workflow['ACTIONS']):
+            action_type = list(action.keys())[0]
+            action_data = action[action_type]
+            if 'id' in action_data:
+                action_id_map[action_data['id']] = i
+        
         for i, action in enumerate(self.workflow['ACTIONS']):
             action_type = list(action.keys())[0]
             action_data = action[action_type]
@@ -297,13 +338,23 @@ class WorkflowValidator:
                 graph[i].append(i + 1)
             
             # DECIDE steps can also loop back
-            if action_type == 'DECIDE' and 'loopback' in action_data:
-                loopback = action_data['loopback']
-                if isinstance(loopback, int) and 1 <= loopback <= len(self.workflow['ACTIONS']):
-                    # Convert to 0-indexed
-                    loopback_idx = loopback - 1
-                    graph[i].append(loopback_idx)
-                    decide_steps[i] = loopback_idx
+            if action_type == 'DECIDE':
+                # Check numeric loopback
+                if 'loopback' in action_data:
+                    loopback = action_data['loopback']
+                    if isinstance(loopback, int) and 1 <= loopback <= len(self.workflow['ACTIONS']):
+                        # Convert to 0-indexed
+                        loopback_idx = loopback - 1
+                        graph[i].append(loopback_idx)
+                        decide_steps[i] = loopback_idx
+                
+                # Check ID-based loopback_target
+                if 'loopback_target' in action_data:
+                    target_id = action_data['loopback_target']
+                    if isinstance(target_id, str) and target_id in action_id_map:
+                        target_idx = action_id_map[target_id]
+                        graph[i].append(target_idx)
+                        decide_steps[i] = target_idx
         
         # Check for unreachable steps
         reachable = set([0])  # First step is always reachable

@@ -58,6 +58,11 @@ class WorkflowEngine:
         self.variables = {}  # Store variables for template substitution
         self.skip_validation = skip_validation
         self.validated = False
+        
+        # New attributes for enhanced DECIDE functionality
+        self.execution_counts = {}  # Track execution counts for each output variable
+        self.output_history = {}    # Track output history for each variable
+        self.feedback_cache = {}    # Cache for feedback from DECIDE actions
 
         # Get workflow name from file path
         workflow_name = os.path.basename(workflow_path).split('.')[0]
@@ -263,7 +268,69 @@ class WorkflowEngine:
         if input_item in self.string_vars:
             return self.string_vars[input_item]
         elif input_item in self.output_vars:
-            # If this is an output reference, get the final_answer if available, otherwise fall back to content
+            # Check if this is a reference to an output that has append-history flag
+            current_action = self.workflow['ACTIONS'][self.current_step] if self.workflow and 'ACTIONS' in self.workflow else None
+            
+            if current_action:
+                action_type = list(current_action.keys())[0]  # Get the action type (e.g., PROMPT, DECIDE)
+                action_config = current_action[action_type]
+                
+                # Check for append-history flag
+                append_history = action_config.get('append-history', False)
+                append_history_type = action_config.get('append-history-type', 'LATEST')
+                
+                # Handle history appending if enabled
+                if append_history and input_item in self.output_history:
+                    history = self.output_history[input_item]
+                    
+                    # Check if the current step is targeted by a DECIDE action (has feedback)
+                    step_id = action_config.get('id')
+                    has_feedback = (step_id and step_id in self.feedback_cache) or self.current_step in self.feedback_cache
+                    
+                    # Build the output with history
+                    result = ""
+                    
+                    # First, include the normal output
+                    output_var = self.output_vars[input_item]
+                    if 'final_answer' in output_var:
+                        result = output_var.get('final_answer')
+                    elif 'content' in output_var:
+                        result = output_var.get('content')
+                    
+                    # Then, append history based on type
+                    if append_history_type == 'ALL' and len(history) > 1:
+                        result += "\n\n===== PREVIOUS OUTPUTS =====\n"
+                        for i, hist_name in enumerate(history[:-1]):  # Skip the most recent one (already included)
+                            try:
+                                hist_path = os.path.join(self.output_dir, f"{hist_name}.yaml")
+                                with open(hist_path, 'r') as file:
+                                    hist_data = yaml.safe_load(file)
+                                    hist_content = hist_data.get('final_answer', hist_data.get('content', ''))
+                                    result += f"\n--- Output {i+1} ---\n{hist_content}\n"
+                            except Exception as e:
+                                self.log_debug(f"Failed to read history file {hist_path}: {str(e)}")
+                    
+                    elif append_history_type == 'LATEST' and len(history) > 1:
+                        # Only include the most recent previous output
+                        try:
+                            prev_name = history[-2]  # Second-to-last item (latest previous)
+                            prev_path = os.path.join(self.output_dir, f"{prev_name}.yaml")
+                            with open(prev_path, 'r') as file:
+                                prev_data = yaml.safe_load(file)
+                                prev_content = prev_data.get('final_answer', prev_data.get('content', ''))
+                                result += f"\n\n===== YOUR PREVIOUS OUTPUT =====\n{prev_content}\n"
+                        except Exception as e:
+                            self.log_debug(f"Failed to read previous output file: {str(e)}")
+                    
+                    # Add feedback if available
+                    if has_feedback:
+                        feedback = self.feedback_cache.get(step_id, self.feedback_cache.get(self.current_step, ''))
+                        if feedback:
+                            result += f"\n\n===== FEEDBACK =====\n{feedback}\n"
+                    
+                    return result
+            
+            # Fall back to normal output resolution if history appending not enabled
             output_var = self.output_vars[input_item]
             if 'final_answer' in output_var:
                 return output_var.get('final_answer')
@@ -305,12 +372,42 @@ class WorkflowEngine:
             return input_item
     
     def save_output(self, name: str, data: Dict[str, Any]) -> None:
-        """Save action output to a YAML file and to memory."""
+        """Save action output to a YAML file and to memory with version tracking."""
         # Store in memory
         self.output_vars[name] = data
         
-        # Save to file
-        output_path = os.path.join(self.output_dir, f"{name}.yaml")
+        # Track output history - increment execution count
+        self.execution_counts[name] = self.execution_counts.get(name, 0) + 1
+        current_count = self.execution_counts[name]
+        
+        # Create versioned filename
+        versioned_name = f"{name}_{current_count:04d}"
+        
+        # Store in history tracker
+        if name not in self.output_history:
+            self.output_history[name] = []
+        self.output_history[name].append(versioned_name)
+        
+        # If this is a DECIDE action with an explanation, cache the feedback
+        if data.get('action_type') == 'DECIDE' and 'explanation' in data:
+            # For string ID loopback
+            loopback_target = data.get('loopback_target')
+            if loopback_target is not None:
+                self.feedback_cache[loopback_target] = data['explanation']
+            
+            # For numeric loopback
+            loopback_index = data.get('loopback_value')
+            if loopback_index is not None:
+                self.feedback_cache[loopback_index] = data['explanation']
+        
+        # Save both the regular and versioned output files
+        self._save_output_to_file(os.path.join(self.output_dir, f"{name}.yaml"), data)
+        self._save_output_to_file(os.path.join(self.output_dir, f"{versioned_name}.yaml"), data)
+        
+        self.log_debug(f"Saved output '{name}' (version {current_count}) to files")
+    
+    def _save_output_to_file(self, output_path: str, data: Dict[str, Any]) -> None:
+        """Helper method to save output data to a YAML file."""
         try:
             # Set up a custom string representer to always use literal style
             def represent_str_literal(dumper, data):
@@ -400,6 +497,16 @@ class WorkflowEngine:
         actions = self.workflow['ACTIONS']
         self.current_step = 0
         
+        # Create a map of action IDs to step indices for id-based loopback
+        action_id_map = {}
+        for i, action in enumerate(actions):
+            action_type = list(action.keys())[0]
+            action_data = action[action_type]
+            if 'id' in action_data:
+                action_id = action_data['id']
+                action_id_map[action_id] = i
+                self.log_debug(f"Mapped action ID '{action_id}' to step index {i} (step {i+1})")
+        
         # Emit workflow start event
         workflow_id = os.path.basename(self.workflow_path).split('.')[0]
         emitter.emit_sync(EVENT_WORKFLOW_START, workflow_id=workflow_id, path=self.workflow_path)
@@ -411,7 +518,13 @@ class WorkflowEngine:
             action_type = list(action.keys())[0]
             if action_type == 'DECIDE':
                 loopback = action[action_type].get('loopback')
-                self.log_debug(f"  Step {i+1}: {action_type} (loopback: {loopback}, loopback-1: {loopback-1})")
+                loopback_target = action[action_type].get('loopback_target')
+                if loopback is not None:
+                    self.log_debug(f"  Step {i+1}: {action_type} (loopback: {loopback}, loopback-1: {loopback-1})")
+                elif loopback_target is not None:
+                    self.log_debug(f"  Step {i+1}: {action_type} (loopback_target: {loopback_target})")
+                else:
+                    self.log_debug(f"  Step {i+1}: {action_type} (no loopback defined)")
             else:
                 self.log_debug(f"  Step {i+1}: {action_type}")
         self.log_debug("="*50)
@@ -462,8 +575,9 @@ class WorkflowEngine:
                 loop_limit = action_details.get('loop_limit', 10)
                 loop_count = 0
                 loopback = action_details.get('loopback')
+                loopback_target = action_details.get('loopback_target')
                 
-                self.log_debug(f"Starting DECIDE action (step {self.current_step+1}) with loopback={loopback} (1-indexed)")
+                self.log_debug(f"Starting DECIDE action (step {self.current_step+1}) with loopback={loopback} or loopback_target={loopback_target}")
                 
                 while loop_count < loop_limit:
                     self.log_debug(f"DECIDE evaluation #{loop_count+1} at step {self.current_step+1}")
@@ -480,14 +594,48 @@ class WorkflowEngine:
                     else:
                         # Decision was FALSE, loop back
                         loop_count += 1
-                        self.log_debug(f"DECIDE result: FALSE - Looping back from step {self.current_step+1} to step {next_step+1} (0-indexed: {next_step})")
-                        self.log_debug(f"Loop attempt {loop_count}/{loop_limit}")
                         
-                        logger.info(f"Looping back to step {next_step + 1} (attempt {loop_count}/{loop_limit})")
-                        if loop_count >= loop_limit:
-                            self.log_debug(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
-                            logger.error(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
-                            return False
+                        # Handle string ID-based loopback target
+                        if isinstance(next_step, str):
+                            if next_step in action_id_map:
+                                target_step = action_id_map[next_step]
+                                self.log_debug(f"DECIDE result: FALSE - Looping back from step {self.current_step+1} to action ID '{next_step}' (step {target_step+1})")
+                                self.log_debug(f"Loop attempt {loop_count}/{loop_limit}")
+                                
+                                logger.info(f"Looping back to action ID '{next_step}' (step {target_step+1}) (attempt {loop_count}/{loop_limit})")
+                                if loop_count >= loop_limit:
+                                    self.log_debug(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
+                                    logger.error(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
+                                    return False
+                                
+                                # Log detailed information about the ID-based loopback
+                                self.log_debug(f"LOOPBACK TRACE (ID-based):")
+                                from_type = self.get_step_type(self.current_step)
+                                to_type = self.get_step_type(target_step)
+                                self.log_debug(f"  From: Step {self.current_step+1} ({from_type}, 0-indexed: {self.current_step})")
+                                self.log_debug(f"  To: Step {target_step+1} ({to_type}, 0-indexed: {target_step})")
+                                self.log_debug(f"  Loopback target ID: '{next_step}'")
+                                
+                                # Reset the current step to the target step
+                                self.log_debug(f"Setting current_step from {self.current_step} to {target_step} (0-indexed) which is step {target_step+1} in workflow")
+                                logger.debug(f"Setting current_step to {target_step} (0-indexed) which is step {target_step+1} in the workflow")
+                                self.current_step = target_step
+                                break
+                            else:
+                                error_msg = f"INVALID LOOPBACK TARGET ID: '{next_step}' is not defined in the workflow"
+                                self.log_debug(error_msg)
+                                logger.error(error_msg)
+                                return False
+                        # Handle numeric loopback (original behavior)
+                        else:
+                            self.log_debug(f"DECIDE result: FALSE - Looping back from step {self.current_step+1} to step {next_step+1} (0-indexed: {next_step})")
+                            self.log_debug(f"Loop attempt {loop_count}/{loop_limit}")
+                            
+                            logger.info(f"Looping back to step {next_step + 1} (attempt {loop_count}/{loop_limit})")
+                            if loop_count >= loop_limit:
+                                self.log_debug(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
+                                logger.error(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
+                                return False
                             
                         # BUGFIX: The problem occurs when a DECIDE action loops back to an earlier step,
                         # especially when multiple DECIDE actions are chained.
