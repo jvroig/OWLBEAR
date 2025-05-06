@@ -290,12 +290,13 @@ class WorkflowEngine:
                     # Build the output with history
                     result = ""
                     
-                    # First, include the normal output
+                    # Include the output (final_answer only)
                     output_var = self.output_vars[input_item]
                     if 'final_answer' in output_var:
                         result = output_var.get('final_answer')
-                    elif 'content' in output_var:
-                        result = output_var.get('content')
+                    else:
+                        logger.warning(f"Output variable {input_item} has no final_answer field")
+                        result = ""
                     
                     # Then, append history based on type
                     if append_history_type == 'ALL' and len(history) > 1:
@@ -305,8 +306,11 @@ class WorkflowEngine:
                                 hist_path = os.path.join(self.output_dir, f"{hist_name}.yaml")
                                 with open(hist_path, 'r') as file:
                                     hist_data = yaml.safe_load(file)
-                                    hist_content = hist_data.get('final_answer', hist_data.get('content', ''))
-                                    result += f"\n--- Output {i+1} ---\n{hist_content}\n"
+                                    if 'final_answer' in hist_data:
+                                        hist_content = hist_data.get('final_answer', '')
+                                        result += f"\n--- Output {i+1} ---\n{hist_content}\n"
+                                    else:
+                                        logger.warning(f"Historical file {hist_path} has no final_answer field")
                             except Exception as e:
                                 self.log_debug(f"Failed to read history file {hist_path}: {str(e)}")
                     
@@ -317,8 +321,11 @@ class WorkflowEngine:
                             prev_path = os.path.join(self.output_dir, f"{prev_name}.yaml")
                             with open(prev_path, 'r') as file:
                                 prev_data = yaml.safe_load(file)
-                                prev_content = prev_data.get('final_answer', prev_data.get('content', ''))
-                                result += f"\n\n===== YOUR PREVIOUS OUTPUT =====\n{prev_content}\n"
+                                if 'final_answer' in prev_data:
+                                    prev_content = prev_data.get('final_answer', '')
+                                    result += f"\n\n===== YOUR PREVIOUS OUTPUT =====\n{prev_content}\n"
+                                else:
+                                    logger.warning(f"Previous output file {prev_path} has no final_answer field")
                         except Exception as e:
                             self.log_debug(f"Failed to read previous output file: {str(e)}")
                     
@@ -334,11 +341,8 @@ class WorkflowEngine:
             output_var = self.output_vars[input_item]
             if 'final_answer' in output_var:
                 return output_var.get('final_answer')
-            elif 'content' in output_var:
-                # For backward compatibility
-                return output_var.get('content')
             else:
-                logger.warning(f"Output variable {input_item} has no final_answer or content field")
+                logger.warning(f"Output variable {input_item} has no final_answer field")
                 return ""
         else:
             # Check if this is a file reference that needs path updating
@@ -349,11 +353,12 @@ class WorkflowEngine:
                     try:
                         with open(output_path, 'r') as file:
                             data = yaml.safe_load(file)
-                            # Try to get final_answer first, then fall back to content
+                            # Only use final_answer, no more content fallback
                             if 'final_answer' in data:
                                 return data.get('final_answer', '')
                             else:
-                                return data.get('content', '')
+                                logger.warning(f"YAML file {output_path} has no final_answer field")
+                                return ""
                     except Exception as e:
                         logger.error(f"Failed to read yaml file {output_path}: {str(e)}")
             
@@ -418,13 +423,13 @@ class WorkflowEngine:
             # Custom dictionary representer for history items to preserve field order
             def represent_dict_preserve_order(dumper, data):
                 if 'history' in data and isinstance(data['history'], list):
-                    # Ensure role comes before message in each history item
+                    # Ensure role comes before content in each history item
                     for item in data['history']:
-                        if 'role' in item and 'message' in item:
+                        if 'role' in item and 'content' in item:
                             # Reorder the keys to ensure role is first
                             ordered_item = {}
                             ordered_item['role'] = item['role']
-                            ordered_item['message'] = item['message']
+                            ordered_item['content'] = item['content']
                             # Replace the original item with the ordered one
                             item.clear()
                             item.update(ordered_item)

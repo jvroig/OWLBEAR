@@ -73,7 +73,7 @@ def call_agent(expert: str, prompt: str) -> dict:
     # Add initial user query - with role first
     conversation_history.append({
         "role": "user",
-        "message": prompt
+        "content": prompt
     })
     
     current_assistant_content = ""
@@ -92,7 +92,7 @@ def call_agent(expert: str, prompt: str) -> dict:
                 if current_assistant_content:
                     conversation_history.append({
                         "role": "assistant",
-                        "message": current_assistant_content
+                        "content": current_assistant_content
                     })
                     current_assistant_content = ""
                     
@@ -100,7 +100,7 @@ def call_agent(expert: str, prompt: str) -> dict:
             if chunk_data.get('role') == 'tool_call':
                 conversation_history.append({
                     "role": "tool",
-                    "message": chunk_data.get('content', '')
+                    "content": chunk_data.get('content', '')
                 })
                 logger.info(f"Tool call result: {chunk_data.get('content')}")
                 
@@ -111,7 +111,7 @@ def call_agent(expert: str, prompt: str) -> dict:
     final_answer = ""
     for entry in reversed(conversation_history):
         if entry["role"] == "assistant":
-            final_answer = entry["message"]
+            final_answer = entry["content"]
             break
             
     logger.info(f"FULL HISTORY: {conversation_history}")
