@@ -244,6 +244,10 @@ class EventConnector:
         # Update current execution
         self.current_executions[execution_id]["current_step"] = step_index
         
+        # Extract description if available
+        description = kwargs.get("description", None)
+        logger.info(f"Step start details: step={step_index+1}, action={action_type}, expert={expert_id}, description={description}")
+        
         # Track step in execution
         step_data = {
             "step_index": step_index,
@@ -253,6 +257,11 @@ class EventConnector:
             "started_at": datetime.now(),
             **kwargs
         }
+        
+        # Extract description if available
+        description = None
+        if "description" in kwargs:
+            description = kwargs.pop("description", None)
         
         # Add to steps list
         self.current_executions[execution_id]["steps"].append(step_data)
@@ -264,11 +273,14 @@ class EventConnector:
             action_type,
             expert_id,
             "running",
+            description=description,
             **kwargs
         )
         
         # Log the event
         log_message = f"Step {step_index + 1} started: {action_type} with expert {expert_id}"
+        if description:
+            log_message += f" - Description: {description}"
         await self.event_service.emit_log(execution_id, log_message)
         
         logger.info(f"Emitted step start event for execution: {execution_id}, step: {step_index}")
@@ -306,12 +318,26 @@ class EventConnector:
         
         # Emit step update event
         status = "completed" if success else "failed"
+        
+        # Extract description if available
+        description = None
+        if "description" in kwargs:
+            description = kwargs.pop("description", None)
+        
+        # If description is not in kwargs, try to get it from the step data
+        if description is None:
+            for step in self.current_executions[execution_id]["steps"]:
+                if step["step_index"] == step_index and "description" in step:
+                    description = step["description"]
+                    break
+        
         await self.event_service.emit_step_update(
             execution_id,
             step_index,
             action_type,
             expert_id,
             status,
+            description=description,
             **kwargs
         )
         

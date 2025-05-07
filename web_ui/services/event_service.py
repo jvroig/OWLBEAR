@@ -74,6 +74,15 @@ class EventService:
             "data": data
         }
         
+        # Log event for debugging
+        logger.info(f"Emitting event: {event_type} for execution: {execution_id}")
+        if event_type == 'step_update':
+            expert_id = data.get('expert_id', 'unknown')
+            step_index = data.get('step_index', -1)
+            status = data.get('status', 'unknown')
+            description = data.get('description', 'none')
+            logger.info(f"Step update details: step={step_index+1}, expert={expert_id}, status={status}, description={description}")
+        
         # Store in event history
         if execution_id not in self.event_history:
             self.event_history[execution_id] = []
@@ -84,6 +93,13 @@ class EventService:
         if len(self.event_history[execution_id]) > self.max_events_per_execution:
             self.event_history[execution_id] = self.event_history[execution_id][-self.max_events_per_execution:]
         
+        # Log connection status
+        if execution_id in self.connections:
+            logger.info(f"Broadcasting to {len(self.connections[execution_id])} clients")
+        else:
+            logger.warning(f"No clients registered for execution: {execution_id}")
+            return
+        
         # Broadcast to all connected clients
         if execution_id in self.connections:
             disconnected_clients = []
@@ -91,6 +107,7 @@ class EventService:
             for websocket in self.connections[execution_id]:
                 try:
                     await websocket.send_json(event)
+                    logger.debug(f"Event sent to client successfully")
                 except Exception as e:
                     logger.error(f"Error sending event to client: {str(e)}")
                     disconnected_clients.append(websocket)
@@ -118,6 +135,7 @@ class EventService:
         action_type: str, 
         expert_id: str, 
         status: str, 
+        description: str = None,
         **kwargs
     ):
         """
@@ -129,6 +147,7 @@ class EventService:
             action_type (str): Type of action
             expert_id (str): ID of the expert
             status (str): Status of the step
+            description (str, optional): Description of the action (if available)
             **kwargs: Additional data
         """
         data = {
@@ -138,6 +157,10 @@ class EventService:
             "status": status,
             **kwargs
         }
+        
+        # Include description if provided
+        if description:
+            data["description"] = description
         
         await self.emit_event(execution_id, "step_update", data)
     

@@ -117,6 +117,7 @@ Your explanation should be specific and actionable, highlighting key strengths o
                             step_index=step_number-1, 
                             action_type='DECIDE', 
                             expert_id=expert, 
+                            description=action.get('description'),
                             success=True,
                             decision=True)
             
@@ -131,6 +132,7 @@ Your explanation should be specific and actionable, highlighting key strengths o
                                 step_index=step_number-1, 
                                 action_type='DECIDE', 
                                 expert_id=expert, 
+                                description=action.get('description'),
                                 success=True,
                                 decision=False,
                                 loopback_to=loopback_target)
@@ -155,6 +157,7 @@ Your explanation should be specific and actionable, highlighting key strengths o
                                 step_index=step_number-1, 
                                 action_type='DECIDE', 
                                 expert_id=expert, 
+                                description=action.get('description'),
                                 success=True,
                                 decision=False,
                                 loopback_to=loopback_value)
@@ -170,7 +173,8 @@ Your explanation should be specific and actionable, highlighting key strengths o
         emitter.emit_sync(EVENT_STEP_END, 
                         step_index=context['step_number']-1, 
                         action_type='DECIDE', 
-                        expert_id=expert if 'expert' in locals() else 'unknown', 
+                        expert_id=expert if 'expert' in locals() else 'unknown',
+                        description=action.get('description') if 'action' in locals() else None,
                         success=False,
                         error=str(e))
         

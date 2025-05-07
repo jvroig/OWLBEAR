@@ -551,10 +551,13 @@ class WorkflowEngine:
             
             # Emit step start event
             expert_id = action_details.get('expert', 'unknown')
+            # Include the description field if it exists in the action_details
+            description = action_details.get('description', None)
             emitter.emit_sync(EVENT_STEP_START, 
                 step_index=self.current_step, 
                 action_type=action_type, 
-                expert_id=expert_id, 
+                expert_id=expert_id,
+                description=description,
                 execution_count=exec_count[self.current_step])
             
             # Create context to pass to action handlers

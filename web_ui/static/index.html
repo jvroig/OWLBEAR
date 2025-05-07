@@ -87,6 +87,55 @@
         .pulse {
             animation: pulse 1.5s infinite ease-in-out;
         }
+        
+        /* ACTION box styles */
+        .viz-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .experts-container {
+            flex: 3;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            overflow: auto;
+        }
+        
+        .action-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            padding: 0 16px 16px 16px;
+        }
+        
+        .action-box {
+            background-color: #2d3748;
+            border-radius: 8px;
+            padding: 16px;
+            width: 80%;
+            max-width: 800px;
+            text-align: center;
+            border: 2px solid #4a5568;
+        }
+        
+        .action-title {
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: #a0aec0;
+        }
+        
+        .action-content {
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -281,6 +330,7 @@
         // Handle workflow selection change
         async function handleWorkflowChange() {
             const workflowId = workflowSelectEl.value;
+            console.log(`Workflow selection changed to: ${workflowId}`);
             
             // Reset parameters and disable execution button
             parametersContainerEl.classList.add('hidden');
@@ -306,6 +356,12 @@
                 
                 const workflow = await response.json();
                 currentWorkflow = workflow;
+                
+                // Log workflow experts for debugging
+                console.log("Workflow Experts:");
+                workflow.experts.forEach((expert, index) => {
+                    console.log(`  ${index+1}. ID: '${expert.id}', Name: '${expert.name}', Icon: '${expert.icon}'`);
+                });
                 
                 // Update strings file selection
                 updateStringsSelection(workflowId);
@@ -351,6 +407,7 @@
                 // Enable execution button
                 executeBtnEl.disabled = false;
                 
+                console.log("Calling updateVisualization with workflow object");
                 // Update visualization
                 updateVisualization(workflow);
             } catch (error) {
@@ -526,10 +583,13 @@
             
             websocket.onmessage = (event) => {
                 try {
+                    console.log("WebSocket message received:", event.data);
                     const message = JSON.parse(event.data);
+                    console.log("Parsed message:", message);
                     handleWebSocketMessage(message);
                 } catch (error) {
-                    console.error('Error parsing WebSocket message:', error);
+                    console.error('Error handling WebSocket message:', error);
+                    console.error('Message data:', event.data);
                 }
             };
             
@@ -546,12 +606,15 @@
         
         // Handle WebSocket messages
         function handleWebSocketMessage(message) {
+            console.log(`Handling WebSocket message of type: ${message.type}`);
+            
             switch (message.type) {
                 case 'log':
                     addTraceLog(message.data.message);
                     break;
                     
                 case 'step_update':
+                    console.log("Step update received:", message.data);
                     handleStepUpdate(message.data);
                     break;
                     
@@ -569,22 +632,143 @@
                     
                 case 'health_check':
                     // Ignore health check messages
+                    console.log("Health check received");
                     break;
                     
                 default:
-                    console.log('Unknown message type:', message.type);
+                    console.log('Unknown message type:', message.type, message);
             }
         }
         
         // Handle step update messages
         function handleStepUpdate(data) {
-            const { step_index, action_type, expert_id, status } = data;
+            const { step_index, action_type, expert_id, status, description } = data;
+            
+            console.log(`Processing step update - step: ${step_index+1}, expert: ${expert_id}, action: ${action_type}, status: ${status}, description: ${description || '(none)'}`);
+            
+            // Log the description for debugging
+            console.log(`Step ${step_index + 1} description: ${description || action_type}`);
             
             // Add to trace log
             addTraceLog(`Step ${step_index + 1}: ${action_type} with expert ${expert_id} - ${status}`, status === 'completed' ? 'success' : 'info');
             
-            // Update visualization
-            updateExpertStatus(expert_id, status);
+            try {
+                // Update expert status in visualization
+                console.log(`Updating expert status for: ${expert_id} to ${status}`);
+                updateExpertStatus(expert_id, status);
+                
+                // Update action box with description or action type
+                if (status === 'running') {
+                    console.log(`Updating action box with description: '${description || action_type}'`);
+                    updateActionBox(description || action_type);
+                } else if (status === 'completed') {
+                    // When a step completes, clear the action box after a short delay
+                    setTimeout(() => {
+                        try {
+                            const actionContent = document.getElementById('action-content');
+                            if (actionContent) {
+                                actionContent.textContent = 'No action in progress';
+                                const actionBox = document.getElementById('action-box');
+                                if (actionBox) {
+                                    actionBox.classList.remove('pulse');
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error clearing action box:', error);
+                        }
+                    }, 2000); // 2 second delay
+                }
+                console.log(`Successfully processed step update for step ${step_index+1}`);
+            } catch (error) {
+                console.error(`Error handling step update:`, error);
+                console.error(`Step data:`, data);
+            }
+        }
+        
+        // Update the action box with current action information
+        function updateActionBox(actionText) {
+            console.log("Updating action box with text:", actionText);
+            
+            // First find the action-content element
+            const actionContent = document.getElementById('action-content');
+            
+            // If action-content not found, try to find the action box
+            if (!actionContent) {
+                console.warn("Could not find action-content element, searching for action box");
+                const actionBox = document.getElementById('action-box');
+                
+                // If action box found, try to find content inside it
+                if (actionBox) {
+                    const contentEl = actionBox.querySelector('.action-content');
+                    if (contentEl) {
+                        contentEl.textContent = actionText;
+                        console.log("Found action-content via selector and updated text");
+                        
+                        // Add pulse animation
+                        actionBox.classList.remove('pulse');
+                        void actionBox.offsetWidth; // Force reflow to restart animation
+                        actionBox.classList.add('pulse');
+                        return;
+                    }
+                }
+                
+                // If still not found, search for all content in the visualization
+                console.warn("Action box components not found, checking visualization container");
+                const vizContainer = document.querySelector('.viz-container');
+                if (vizContainer) {
+                    // Try to find the action container
+                    const actionContainer = vizContainer.querySelector('.action-container');
+                    if (actionContainer) {
+                        // Try to rebuild the action box
+                        console.log("Rebuilding action box");
+                        actionContainer.innerHTML = '';
+                        
+                        // Create new action box
+                        const newActionBox = document.createElement('div');
+                        newActionBox.className = 'action-box pulse';
+                        newActionBox.id = 'action-box';
+                        
+                        // Add action title
+                        const actionTitle = document.createElement('div');
+                        actionTitle.className = 'action-title';
+                        actionTitle.textContent = 'ACTION';
+                        newActionBox.appendChild(actionTitle);
+                        
+                        // Add action content
+                        const newActionContent = document.createElement('div');
+                        newActionContent.className = 'action-content';
+                        newActionContent.textContent = actionText;
+                        newActionContent.id = 'action-content';
+                        newActionBox.appendChild(newActionContent);
+                        
+                        // Add to container
+                        actionContainer.appendChild(newActionBox);
+                        console.log("Action box rebuilt successfully");
+                        return;
+                    }
+                }
+                
+                console.error("Could not find or rebuild action box components");
+                return;
+            }
+            
+            // If we found action-content, update it
+            actionContent.textContent = actionText;
+            
+            // Highlight the box to draw attention
+            const actionBox = document.getElementById('action-box');
+            if (actionBox) {
+                // Remove previous animation class if any
+                actionBox.classList.remove('pulse');
+                
+                // Force reflow to restart animation
+                void actionBox.offsetWidth;
+                
+                // Add pulse effect
+                actionBox.classList.add('pulse');
+            }
+            
+            console.log("Action box updated successfully");
         }
         
         // Handle tool call messages
@@ -695,10 +879,24 @@
             
             // Reset expert statuses in visualization
             resetExpertStatuses();
+            
+            // Reset action box
+            const actionContent = document.getElementById('action-content');
+            if (actionContent) {
+                actionContent.textContent = 'No action in progress';
+                
+                // Remove any animation
+                const actionBox = document.getElementById('action-box');
+                if (actionBox) {
+                    actionBox.classList.remove('pulse');
+                }
+            }
         }
         
         // Update the visualization with workflow information
         function updateVisualization(workflow) {
+            console.log("updateVisualization called with workflow:", workflow);
+            
             // Clear visualization
             visualizationEl.innerHTML = '';
             
@@ -708,28 +906,78 @@
                 return;
             }
             
-            // Create the visualization container
-            const container = document.createElement('div');
-            container.className = 'flex flex-wrap justify-center gap-4 p-4 w-full h-full overflow-auto';
+            console.log(`Visualizing workflow with ${workflow.experts.length} experts`);
+            
+            // Create the visualization container with flex column layout
+            const vizContainer = document.createElement('div');
+            vizContainer.className = 'viz-container';
+            
+            // Create experts container
+            const expertsContainer = document.createElement('div');
+            expertsContainer.className = 'experts-container';
             
             // Create expert elements
             workflow.experts.forEach(expert => {
                 const expertEl = createExpertElement(expert);
-                container.appendChild(expertEl);
+                expertsContainer.appendChild(expertEl);
             });
             
-            // Add to visualization
-            visualizationEl.appendChild(container);
+            // Create action container
+            const actionContainer = document.createElement('div');
+            actionContainer.className = 'action-container';
+            
+            // Create action box
+            const actionBox = document.createElement('div');
+            actionBox.className = 'action-box';
+            actionBox.id = 'action-box';
+            
+            // Add action title
+            const actionTitle = document.createElement('div');
+            actionTitle.className = 'action-title';
+            actionTitle.textContent = 'ACTION';
+            actionBox.appendChild(actionTitle);
+            
+            // Add action content (initially empty)
+            const actionContent = document.createElement('div');
+            actionContent.className = 'action-content';
+            actionContent.textContent = 'No action in progress';
+            actionContent.id = 'action-content';
+            actionBox.appendChild(actionContent);
+            
+            // Add action box to container
+            actionContainer.appendChild(actionBox);
+            
+            // Assemble the visualization
+            vizContainer.appendChild(expertsContainer);
+            vizContainer.appendChild(actionContainer);
+            visualizationEl.appendChild(vizContainer);
+            
+            // Log visualization elements for debugging
+            console.log("Visualization elements created:");
+            console.log("Container:", vizContainer);
+            console.log("Experts container:", expertsContainer);
+            console.log("Action box:", actionBox);
             
             // Initialize Feather Icons
             feather.replace();
+            
+            console.log("Visualization updated successfully");
         }
         
         // Create an expert element for visualization
         function createExpertElement(expert) {
+            console.log(`Creating expert element for: ${expert.id}`);
+            
+            // Normalize expert ID for consistency
+            // Keep original expert.id for data purposes, but normalize for DOM element IDs
+            const normalizedId = expert.id.toLowerCase();
+            
             const expertEl = document.createElement('div');
             expertEl.className = 'expert-node bg-gray-800 rounded-lg p-4 flex flex-col items-center justify-center w-40 h-40 text-center';
-            expertEl.id = `expert-${expert.id}`;
+            expertEl.id = `expert-${normalizedId}`;
+            
+            // Store original ID as a data attribute for reference
+            expertEl.setAttribute('data-original-id', expert.id);
             
             // Create icon container
             const iconEl = document.createElement('div');
@@ -737,7 +985,7 @@
             
             // Create SVG icon using Feather Icons
             const iconSvg = document.createElement('i');
-            // For debugging: console.log("EXPERT ICON for " + expert.name + ": " + expert.icon);
+            console.log(`Expert icon for ${expert.name}: ${expert.icon || 'user'}`);
             iconSvg.setAttribute('data-feather', expert.icon || 'user');
             iconSvg.className = 'w-8 h-8'; // Set size
             iconEl.appendChild(iconSvg);
@@ -750,21 +998,105 @@
             // Create status indicator (initially hidden)
             const statusEl = document.createElement('div');
             statusEl.className = 'expert-status mt-2 hidden';
-            statusEl.id = `expert-status-${expert.id}`;
+            statusEl.id = `expert-status-${normalizedId}`;
             
             // Assemble expert element
             expertEl.appendChild(iconEl);
             expertEl.appendChild(nameEl);
             expertEl.appendChild(statusEl);
             
+            console.log(`Created expert element with ID: expert-${normalizedId} (original ID: ${expert.id})`);
+            
             return expertEl;
         }
         
         // Update expert status in visualization
         function updateExpertStatus(expertId, status) {
-            const statusEl = document.getElementById(`expert-status-${expertId}`);
-            const expertEl = document.getElementById(`expert-${expertId}`);
-            if (!statusEl || !expertEl) return;
+            if (!expertId) {
+                console.error("Invalid expert ID: empty or null");
+                return;
+            }
+            
+            console.log(`updateExpertStatus called with expertId='${expertId}', status='${status}'`);
+            
+            // Normalize expert ID (make it case-insensitive)
+            // Try both original case and lowercase
+            const normalizedExpertId = typeof expertId === 'string' ? expertId.toLowerCase() : String(expertId).toLowerCase();
+            
+            // Try finding the elements directly by ID
+            let statusEl = document.getElementById(`expert-status-${expertId}`);
+            let expertEl = document.getElementById(`expert-${expertId}`);
+            
+            // If not found, try lowercase
+            if (!statusEl || !expertEl) {
+                statusEl = document.getElementById(`expert-status-${normalizedExpertId}`);
+                expertEl = document.getElementById(`expert-${normalizedExpertId}`);
+            }
+            
+            // If still not found, try to find the expert by data attribute
+            if (!expertEl) {
+                console.log("Looking for expert by data attribute");
+                const allExperts = document.querySelectorAll('[data-original-id]');
+                allExperts.forEach(el => {
+                    const originalId = el.getAttribute('data-original-id');
+                    if (originalId && (originalId === expertId || originalId.toLowerCase() === normalizedExpertId)) {
+                        console.log(`Found expert by data-original-id: ${originalId}`);
+                        expertEl = el;
+                        // Also find the corresponding status element
+                        const elId = el.id.replace('expert-', '');
+                        statusEl = document.getElementById(`expert-status-${elId}`);
+                    }
+                });
+            }
+            
+            // If still not found, try a more thorough search for expert nodes
+            if (!statusEl || !expertEl) {
+                console.log("Trying more thorough search of expert nodes");
+                const allExpertNodes = document.querySelectorAll('.expert-node');
+                console.log(`Found ${allExpertNodes.length} expert nodes`);
+                
+                console.log("Expert nodes IDs:");
+                allExpertNodes.forEach(node => {
+                    console.log(`  Expert node ID: ${node.id}`);
+                });
+                
+                // Try to match by ID portion (after "expert-")
+                for (const node of allExpertNodes) {
+                    const nodeId = node.id.replace('expert-', '');
+                    if (nodeId === expertId || nodeId.toLowerCase() === normalizedExpertId) {
+                        console.log(`Found expert by node ID match: ${nodeId}`);
+                        expertEl = node;
+                        statusEl = document.getElementById(`expert-status-${nodeId}`);
+                        break;
+                    }
+                    
+                    // Try partial matching on expert ID
+                    if (nodeId.includes(normalizedExpertId) || normalizedExpertId.includes(nodeId)) {
+                        console.log(`Found expert by partial ID match: ${nodeId} contains or is contained in ${normalizedExpertId}`);
+                        expertEl = node;
+                        statusEl = document.getElementById(`expert-status-${nodeId}`);
+                        break;
+                    }
+                }
+            }
+            
+            console.log(`Found elements: statusEl=${!!statusEl}, expertEl=${!!expertEl}`);
+            
+            if (!statusEl || !expertEl) {
+                console.error(`Could not find elements for expert: '${expertId}'`);
+                console.error(`Normalized ID: '${normalizedExpertId}'`);
+                
+                // Dump the visualization structure
+                console.log("Current visualization structure:");
+                const vizContainer = document.querySelector('.viz-container');
+                if (vizContainer) {
+                    console.log(vizContainer.innerHTML);
+                } else {
+                    console.log("No visualization container found");
+                }
+                
+                return;
+            }
             
             // Find the icon element
             const iconEl = expertEl.querySelector('.expert-icon');
@@ -788,7 +1120,7 @@
                         iconEl.classList.add('text-blue-400');
                     }
                     break;
-                    
+                
                 case 'completed':
                     // Update status indicator
                     statusEl.className = 'expert-status mt-2 text-xs bg-green-500 text-white px-2 py-1 rounded-full';
@@ -826,8 +1158,10 @@
                     }
                     break;
             }
+            
+            console.log(`Successfully updated expert '${expertId}' status to '${status}'`);
         }
-        
+                
         // Reset all expert statuses in visualization
         function resetExpertStatuses() {
             // Hide all status indicators
@@ -849,7 +1183,13 @@
         
         // Reset visualization
         function resetVisualization() {
+            console.log("Resetting visualization");
+            
+            // Clear visualization container
             visualizationEl.innerHTML = '<div class="text-gray-500 italic">Select a workflow to visualize the experts and their interactions.</div>';
+            
+            // No need to reset action box separately since we're clearing the entire visualization
+            console.log("Visualization reset complete");
         }
         
         // Initialize the application when the DOM is loaded

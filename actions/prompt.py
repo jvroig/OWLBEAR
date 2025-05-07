@@ -82,7 +82,8 @@ def execute_prompt_action(action: Dict[str, Any], context: Dict[str, Any]) -> bo
         emitter.emit_sync(EVENT_STEP_END, 
                         step_index=step_number-1, 
                         action_type='PROMPT', 
-                        expert_id=expert, 
+                        expert_id=expert,
+                        description=action.get('description'),
                         success=True)
         
         return True
@@ -96,7 +97,8 @@ def execute_prompt_action(action: Dict[str, Any], context: Dict[str, Any]) -> bo
         emitter.emit_sync(EVENT_STEP_END, 
                         step_index=context['step_number']-1, 
                         action_type='PROMPT', 
-                        expert_id=expert if 'expert' in locals() else 'unknown', 
+                        expert_id=expert if 'expert' in locals() else 'unknown',
+                        description=action.get('description') if 'action' in locals() else None,
                         success=False,
                         error=str(e))
         
