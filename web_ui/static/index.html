@@ -662,7 +662,9 @@
                     console.log(`Updating action box with description: '${description || action_type}'`);
                     updateActionBox(description || action_type);
                 } else if (status === 'completed') {
+                    // NOTE: REMOVED, NOT NEEDED RIGHT NOW, MIGHT RECONSIDER IN FUTURE
                     // // When a step completes, clear the action box after a short delay
+                    // console.log(`Updating action box to NO ACTION`);
                     // setTimeout(() => {
                     //     try {
                     //         const actionContent = document.getElementById('action-content');
