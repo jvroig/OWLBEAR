@@ -662,21 +662,21 @@
                     console.log(`Updating action box with description: '${description || action_type}'`);
                     updateActionBox(description || action_type);
                 } else if (status === 'completed') {
-                    // When a step completes, clear the action box after a short delay
-                    setTimeout(() => {
-                        try {
-                            const actionContent = document.getElementById('action-content');
-                            if (actionContent) {
-                                actionContent.textContent = 'No action in progress';
-                                const actionBox = document.getElementById('action-box');
-                                if (actionBox) {
-                                    actionBox.classList.remove('pulse');
-                                }
-                            }
-                        } catch (error) {
-                            console.error('Error clearing action box:', error);
-                        }
-                    }, 2000); // 2 second delay
+                    // // When a step completes, clear the action box after a short delay
+                    // setTimeout(() => {
+                    //     try {
+                    //         const actionContent = document.getElementById('action-content');
+                    //         if (actionContent) {
+                    //             actionContent.textContent = 'No action in progress';
+                    //             const actionBox = document.getElementById('action-box');
+                    //             if (actionBox) {
+                    //                 actionBox.classList.remove('pulse');
+                    //             }
+                    //         }
+                    //     } catch (error) {
+                    //         console.error('Error clearing action box:', error);
+                    //     }
+                    // }, 2000); // 2 second delay
                 }
                 console.log(`Successfully processed step update for step ${step_index+1}`);
             } catch (error) {
