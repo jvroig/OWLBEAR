@@ -339,6 +339,7 @@ STRINGS:
 
 ACTIONS:
   - PROMPT:
+      id: strategic_thinking
       expert: "Strategic Thinking Partner"
       inputs:
         - STR_intro_prompt
@@ -370,7 +371,7 @@ ACTIONS:
         - ceo_synthesis_01
         - If you think this is good enough as the final response plan, say TRUE.
       output: ceo_greenlight
-      loopback: 1
+      loopback_target: "strategic_thinking"
       loop_limit: 10
 
   - PROMPT:
@@ -388,7 +389,7 @@ In this workflow:
 - Two different experts are independently asked to respond to the incident.
 - Both of their outputs are then synthesized by the CEO expert.
 - That synthesis is then reviewed by the CEO, to see if the plan seems good enough already.
-    - If FALSE, the process will loop back to step 1.
+    - If FALSE, the process will loop back to the Strategic Thinking Partner (using ID-based loopback).
     - If TRUE, the workflow continues
 - The CEO expert will create a markdown version of the final plan.
 
@@ -597,8 +598,7 @@ DECIDE:
     - "Reference an earlier output"
     - "Ask for TRUE/FALSE decision"
   output: "decision_result"        # Where to store the decision result
-  loopback: 2                      # Numeric loopback (1-indexed step number)
-  loopback_target: "step_id"       # ID-based loopback (alternative to numeric)
+  loopback_target: "step_id"       # ID-based loopback (reference to an action ID)
   loop_limit: 5                    # Maximum number of iterations
 ```
 
@@ -614,9 +614,8 @@ DECIDE:
    - If TRUE: The workflow continues to the next action
    - If FALSE: The workflow loops back to a previous action
 
-4. **Loopback Mechanisms**: There are two ways to specify where to loop back to:
-   - `loopback`: Numeric value specifying the step number (1-indexed) to return to
-   - `loopback_target`: String ID referencing a specific action's ID
+4. **Loopback Mechanism**: 
+   - `loopback_target`: String ID referencing a specific action's ID to loop back to when the decision is FALSE
 
 5. **Loop Protection**: The `loop_limit` parameter prevents infinite loops by setting a maximum number of iterations. If this limit is reached, the workflow will terminate.
 
@@ -677,21 +676,13 @@ In this workflow:
 3. If FALSE, the workflow loops back to step 1 for revision
 4. If TRUE, the workflow proceeds to the Publication Manager
 
-### Numeric vs. ID-Based Loopback
+### ID-Based Loopback
 
-OWLBEAR supports two methods for specifying loopback targets:
+OWLBEAR uses ID-based loopback, which makes workflows more maintainable:
 
-1. **Numeric Loopback**:
-   ```yaml
-   loopback: 2  # Return to the 2nd action in the workflow (1-indexed)
-   ```
-   Simple but less maintainable as adding/removing actions changes the numbering.
-
-2. **ID-Based Loopback**:
-   ```yaml
-   loopback_target: "content_generation"  # Return to the action with this ID
-   ```
-   More maintainable as it refers to actions by name rather than position.
+```yaml
+loopback_target: "content_generation"  # Return to the action with this ID
+```
 
 To use ID-based loopbacks, assign IDs to your actions:
 ```yaml
@@ -707,7 +698,7 @@ PROMPT:
 
 1. **Clear Decision Criteria**: Make the decision criteria explicit in your prompts
 2. **Reasonable Loop Limits**: Set a `loop_limit` appropriate to your workflow
-3. **ID-Based Loopbacks**: Use named IDs for better maintainability
+3. **ID-Based Loopbacks**: Use clearly named IDs for better maintainability and readability
 4. **Feedback Incorporation**: When looping back, include the previous attempt and feedback
 
 ## Creating Custom Complex Actions
