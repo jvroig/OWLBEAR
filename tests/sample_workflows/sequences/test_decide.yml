@@ -1,0 +1,32 @@
+STRINGS:
+  STR_intro_prompt: "This is a test workflow to verify the DECIDE action functionality."
+  STR_delimiter: "*********************************************"
+
+ACTIONS:
+  - PROMPT:
+      expert: "CEO"
+      inputs:
+        - STR_intro_prompt
+        - "Please provide a brief response to test the workflow."
+      output: initial_response
+  
+  - DECIDE:
+      id: decision_step
+      expert: "CEO"
+      inputs:
+        - "Review the response above and decide if it meets our standards."
+        - initial_response
+        - "Respond with TRUE if the response is satisfactory, or FALSE if we should try again."
+      output: decision_result
+      loopback: 1
+      loop_limit: 3
+  
+  - PROMPT:
+      expert: "CEO"
+      inputs:
+        - "The review process is complete."
+        - "Final response:"
+        - initial_response
+        - "Final decision:"
+        - decision_result
+      output: final_output
