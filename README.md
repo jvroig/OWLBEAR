@@ -492,7 +492,7 @@ You can create your own Complex Actions for any repeatable workflow patterns, su
 - Research and review processes
 - Iterative refinement loops
 
-### Example 5: Data Breach Response Plan Collaboration
+### Example 5: Tool Use
 In this simple example, we have only one expert, but it will use tools to create a report file directly instead of just having it in its text response.
 
 File: `workflows/sequences/report_creation.yml`
@@ -520,7 +520,7 @@ In this workflow:
 After this executes, you will see an `artifacts` folder created inside of OWLBEAR, containing `tech_response.md`.
 
 
-### Example 5: Web Search + Collab
+### Example 6: Web Search + Collab
 
 This is a more complex example that shows 3 tool-enabled agents working together.
 
@@ -580,3 +580,281 @@ In this workflow, the CTO first uses the `brave_web_search` tool to research tip
 Then, his two advisors weigh in. The Communications Strategist and the Decison Making Advisor both read the created file using the `read-file` tool, and then they give their feedback to the CTO.
 
 The CTO considers both of their feedback to create a final incident response plan, which he then writes to `artifacts/final_response_plan.md`.
+
+## DECIDE Action
+The DECIDE action is a powerful feature in OWLBEAR that enables conditional branching and iterative refinement in workflows. Unlike PROMPT actions which simply request information, DECIDE actions evaluate responses and determine the flow of the workflow based on the decision.
+
+### DECIDE Action Structure
+
+Here's the structure of a DECIDE action:
+
+```yaml
+DECIDE:
+  expert: "ExpertID"     # The expert making the decision
+  inputs:                # Input prompts for the expert
+    - "Input 1"
+    - "Input 2"
+    - "Reference an earlier output"
+    - "Ask for TRUE/FALSE decision"
+  output: "decision_result"        # Where to store the decision result
+  loopback: 2                      # Numeric loopback (1-indexed step number)
+  loopback_target: "step_id"       # ID-based loopback (alternative to numeric)
+  loop_limit: 5                    # Maximum number of iterations
+```
+
+### How DECIDE Actions Work
+
+1. **Decision Format**: The DECIDE action expects the expert to respond with a clear TRUE/FALSE decision. OWLBEAR looks for these keywords in the response.
+
+2. **Decision Extraction**: The action attempts to extract both:
+   - A boolean decision (TRUE/FALSE)
+   - An explanation/reasoning for the decision
+
+3. **Flow Control**:
+   - If TRUE: The workflow continues to the next action
+   - If FALSE: The workflow loops back to a previous action
+
+4. **Loopback Mechanisms**: There are two ways to specify where to loop back to:
+   - `loopback`: Numeric value specifying the step number (1-indexed) to return to
+   - `loopback_target`: String ID referencing a specific action's ID
+
+5. **Loop Protection**: The `loop_limit` parameter prevents infinite loops by setting a maximum number of iterations. If this limit is reached, the workflow will terminate.
+
+### Structuring Expert Prompts for DECIDE Actions
+
+For best results with DECIDE actions, structure your prompts to:
+
+1. **Be Explicit**: Clearly ask for a TRUE/FALSE decision
+2. **Provide Context**: Include relevant previous outputs for evaluation
+3. **Set Criteria**: Specify the criteria for a TRUE decision
+4. **Request Explanation**: Ask the expert to explain their reasoning
+
+Example prompt:
+```
+Review this response plan:
+[Previous output here]
+
+Does this plan meet our requirements for clarity, comprehensiveness, and actionability?
+Please evaluate and respond with TRUE if it meets all requirements, or FALSE if we should revise it.
+Provide a brief explanation for your decision.
+```
+
+### Example: Decision-Making Workflow
+
+Here's an example of using DECIDE to create an iterative refinement loop:
+
+```yaml
+ACTIONS:
+  - PROMPT:
+      id: generate_content
+      expert: "Content Creator"
+      inputs:
+        - "Create a first draft of a blog post about AI ethics."
+      output: initial_draft
+  
+  - DECIDE:
+      expert: "Content Editor"
+      inputs:
+        - "Review this draft blog post:"
+        - initial_draft
+        - "Is this draft ready for publication? Respond with TRUE if it meets our quality standards, or FALSE if it needs revision."
+      output: review_decision
+      loopback_target: generate_content
+      loop_limit: 3
+  
+  - PROMPT:
+      expert: "Publication Manager"
+      inputs:
+        - "The following blog post has been approved:"
+        - initial_draft
+        - "Please format it for publication."
+      output: final_output
+```
+
+In this workflow:
+1. The Content Creator generates an initial draft
+2. The Content Editor reviews it and decides if it's ready
+3. If FALSE, the workflow loops back to step 1 for revision
+4. If TRUE, the workflow proceeds to the Publication Manager
+
+### Numeric vs. ID-Based Loopback
+
+OWLBEAR supports two methods for specifying loopback targets:
+
+1. **Numeric Loopback**:
+   ```yaml
+   loopback: 2  # Return to the 2nd action in the workflow (1-indexed)
+   ```
+   Simple but less maintainable as adding/removing actions changes the numbering.
+
+2. **ID-Based Loopback**:
+   ```yaml
+   loopback_target: "content_generation"  # Return to the action with this ID
+   ```
+   More maintainable as it refers to actions by name rather than position.
+
+To use ID-based loopbacks, assign IDs to your actions:
+```yaml
+PROMPT:
+  id: content_generation  # This ID can be referenced by loopback_target
+  expert: "Expert"
+  inputs:
+    - "Input"
+  output: "output_var"
+```
+
+### Best Practices for DECIDE Actions
+
+1. **Clear Decision Criteria**: Make the decision criteria explicit in your prompts
+2. **Reasonable Loop Limits**: Set a `loop_limit` appropriate to your workflow
+3. **ID-Based Loopbacks**: Use named IDs for better maintainability
+4. **Feedback Incorporation**: When looping back, include the previous attempt and feedback
+
+## Creating Custom Complex Actions
+
+Complex Actions allow you to create reusable workflow templates that can be parameterized and used across multiple workflows. This section will guide you through the process of creating your own custom Complex Actions.
+
+### Complex Action Files
+
+Complex Actions are defined in YAML files stored in the `actions/complex` directory. Each file represents a single Complex Action template.
+
+### Basic Structure
+
+A Complex Action definition consists of a sequence of basic PROMPT and DECIDE actions, with variable placeholders:
+
+```yaml
+ACTIONS:
+  - PROMPT:
+      id: first_step_id
+      expert: {{expert}}
+      inputs:
+        - "Fixed prompt text"
+        - "Parameterized text: {{variable_name}}"
+      output: step1_output
+  
+  - DECIDE:
+      expert: {{expert}}
+      inputs:
+        - "Review the output:"
+        - step1_output
+        - "Is this satisfactory? Respond with TRUE or FALSE."
+      output: decision_output
+      loopback_target: first_step_id
+      loop_limit: 3
+```
+
+### Variable Placeholders
+
+Use double curly braces `{{variable_name}}` to denote variables that will be replaced when the Complex Action is used:
+
+1. **Standard Variables**:
+   - `{{expert}}`: The expert assigned to this Complex Action
+   - Other custom variables defined in the `data` section when using the Complex Action
+
+2. **Referencing Outputs**: You can reference outputs from previous steps within the Complex Action, just like in regular workflows.
+
+### Using the Complex Action
+
+To use a Complex Action in a workflow:
+
+```yaml
+ACTIONS:
+  - COMPLEX:
+      action: your_complex_action_name  # Filename without extension
+      expert: "ExpertID"                # Expert for all steps in the Complex Action
+      data:                             # Custom variables for this instance
+        variable_name: "Value to substitute"
+        another_variable: "Another value"
+      output: final_result              # Output name for the final result
+```
+
+### Example: Creating a Comparative Analysis Template
+
+Here's an example of creating a Complex Action for comparative analysis:
+
+1. **Create the file** `actions/complex/comparative_analysis.yml`:
+
+```yaml
+ACTIONS:
+- PROMPT:
+    id: analysis_start
+    expert: {{expert}}
+    inputs:
+      - "I'll conduct a comparison between {{topic_a}} and {{topic_b}}."
+      - "First, let me analyze {{topic_a}}:"
+      - "{{criteria}}"
+    output: topic_a_analysis
+
+- PROMPT:
+    expert: {{expert}}
+    inputs:
+      - "Now, let me analyze {{topic_b}}:"
+      - "{{criteria}}"
+    output: topic_b_analysis
+
+- PROMPT:
+    expert: {{expert}}
+    inputs:
+      - "Based on my analysis of both {{topic_a}} and {{topic_b}}, here's a comparison:"
+      - "Analysis of {{topic_a}}:"
+      - topic_a_analysis
+      - "Analysis of {{topic_b}}:"
+      - topic_b_analysis
+      - "I'll compare them based on: {{criteria}}"
+    output: comparison_draft
+
+- DECIDE:
+    expert: {{expert}}
+    inputs:
+      - "Review this comparative analysis:"
+      - comparison_draft
+      - "Is this comparison thorough and balanced? TRUE or FALSE"
+    output: quality_check
+    loopback_target: analysis_start
+    loop_limit: 2
+
+- PROMPT:
+    expert: {{expert}}
+    inputs:
+      - "Final comparison of {{topic_a}} vs {{topic_b}}:"
+      - comparison_draft
+      - "Recommendation: Based on {{criteria}}, the better option is..."
+    output: final_recommendation
+```
+
+2. **Use it in a workflow**:
+
+```yaml
+ACTIONS:
+  - COMPLEX:
+      action: comparative_analysis
+      expert: "Analysis Expert"
+      data:
+        topic_a: "Python"
+        topic_b: "JavaScript"
+        criteria: "performance, readability, ecosystem, learning curve"
+      output: language_comparison
+  
+  - PROMPT:
+      expert: "CEO"
+      inputs:
+        - "Based on this analysis, make a final decision:"
+        - language_comparison
+      output: final_decision
+```
+
+### Best Practices for Complex Actions
+
+1. **Modular Design**: Design Complex Actions to be self-contained and focused on a specific task
+2. **Meaningful IDs**: Use descriptive IDs for steps to make loopbacks clear
+3. **Clear Variable Names**: Use descriptive variable names that indicate their purpose
+4. **Documentation**: Include comments in your Complex Action file explaining its purpose and required variables
+5. **Testing**: Test your Complex Action with different variable values to ensure it works as expected
+
+### Advanced Techniques
+
+1. **Nested Variable References**: You can use variables within variables: `"{{prefix}}_{{suffix}}"`
+2. **Default Values**: In your workflow implementation, provide default values for optional variables
+3. **Conditional Logic**: Use DECIDE actions to create branching logic within your Complex Action
+
+By creating custom Complex Actions, you can build a library of reusable workflow components that make your OWLBEAR implementations more maintainable, consistent, and easier to develop.
