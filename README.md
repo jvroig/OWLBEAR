@@ -181,6 +181,11 @@ Workflows are a series of ACTIONS.
 
 ACTIONS are building blocks composed of EXPERTS, input, and output.
 
+OWLBEAR supports three types of actions:
+- **PROMPT**: Send a prompt to an expert and get a response
+- **DECIDE**: Make a decision that can control workflow flow (TRUE continues, FALSE loops back)
+- **COMPLEX**: Use predefined action templates that expand into sequences of basic actions
+
 ### Example 1: Hello World
 Here's a "Hello World" example (`helloworld.yml`):
 ```YAML
@@ -389,7 +394,105 @@ In this workflow:
 
 All of the intermediate and final outputs can be seen in the `outputs/databreach_[timestamp]/` folder
 
-### Example 4: Data Breach Response Plan Collaboration
+### Example 4: Complex Actions
+Complex Actions are predefined templates that expand into sequences of basic actions (PROMPT and DECIDE). They make workflow declarations more modular, reusable, and easier to understand.
+
+File: `workflows/sequences/test_complex.yml`
+```yaml
+STRINGS:
+  STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers."
+
+ACTIONS:
+  - PROMPT:
+      expert: "Strategic Thinking Partner"
+      inputs:
+        - STR_intro_prompt
+      output: strat_response_01
+  
+  - COMPLEX:
+      action: polished_output
+      expert: CEO
+      data:
+        instruction: "Create a comprehensive response plan to the data breach."
+        another_data: "Consider legal, ethical, and public relations implications."
+        and_another: "The plan should be actionable and clear."
+      output: polished_response_plan
+  
+  - PROMPT:
+      expert: "Ethical Decision Making Counselor"
+      inputs:
+        - "Please review this response plan:"
+        - polished_response_plan
+      output: ethical_review
+```
+
+In this workflow:
+1. A Strategic Thinking Partner provides initial input
+2. The `polished_output` complex action is used to create a polished response plan
+3. An Ethical Decision Making Counselor reviews the final plan
+
+#### How Complex Actions Work
+
+Complex Actions are defined in YAML files in the `actions/complex` directory. Each file contains a sequence of basic actions (PROMPT and DECIDE) with variable placeholders.
+
+Example Complex Action definition (`actions/complex/polished_output.yml`):
+```yaml
+ACTIONS:
+- PROMPT:
+    id: polished_output_beginning
+    expert: {{expert}}
+    inputs:
+      - "Let's create a polished output together."
+      - "Instructions: {{instruction}}"
+      - "First, create an initial draft."
+    output: initial_draft
+
+- PROMPT:
+    expert: {{expert}}
+    inputs:
+      - "Let's review the initial draft:"
+      - initial_draft
+      - "{{another_data}}"
+      - "Suggest improvements."
+    output: suggested_improvements
+
+- PROMPT:
+    expert: {{expert}}
+    inputs:
+      - "Create a final revised version."
+      - "Initial draft:"
+      - initial_draft
+      - "Suggested improvements:"
+      - suggested_improvements
+      - "Additional context: {{and_another}}"
+    output: final_version
+
+- DECIDE:
+    expert: {{expert}}
+    inputs:
+      - "Evaluate the quality of this final output:"
+      - final_version
+      - "Is this of high quality? TRUE/FALSE"
+    output: quality_evaluation
+    loopback_target: polished_output_beginning
+    loop_limit: 3
+```
+
+When a workflow is loaded, OWLBEAR expands all Complex Actions into their basic components, substituting the variables with the values provided in the `data` section.
+
+#### Benefits of Complex Actions
+- **Reusability**: Define common action patterns once and reuse them across workflows
+- **Abstraction**: Hide complex implementation details behind a simple interface
+- **Consistency**: Ensure similar tasks are handled in a consistent way
+- **Maintainability**: Update a Complex Action template to improve all workflows that use it
+
+You can create your own Complex Actions for any repeatable workflow patterns, such as:
+- Polished content creation
+- Comparative analysis
+- Research and review processes
+- Iterative refinement loops
+
+### Example 5: Data Breach Response Plan Collaboration
 In this simple example, we have only one expert, but it will use tools to create a report file directly instead of just having it in its text response.
 
 File: `workflows/sequences/report_creation.yml`

@@ -1,0 +1,47 @@
+ACTIONS:
+- PROMPT:
+    id: comparative_analysis_start
+    expert: "{{expert}}"
+    inputs:
+      - "I'll help you conduct a comparative analysis between {{topic_a}} and {{topic_b}}."
+      - "First, let me analyze {{topic_a}} in depth."
+      - "{{instructions}}"
+    output: topic_a_analysis
+
+- PROMPT:
+    expert: "{{expert}}"
+    inputs:
+      - "Now, let me analyze {{topic_b}} in depth."
+      - "{{instructions}}"
+    output: topic_b_analysis
+
+- PROMPT:
+    expert: "{{expert}}"
+    inputs:
+      - "Let me compare {{topic_a}} and {{topic_b}} based on our analyses:"
+      - "Analysis of {{topic_a}}:"
+      - topic_a_analysis
+      - "Analysis of {{topic_b}}:"
+      - topic_b_analysis
+      - "Based on these analyses, I'll provide a detailed comparison focusing on the key similarities and differences."
+      - "{{criteria}}"
+    output: comparison_draft
+
+- DECIDE:
+    expert: "{{expert}}"
+    inputs:
+      - "Please evaluate the quality of this comparative analysis:"
+      - comparison_draft
+      - "Does this comparison thoroughly analyze both {{topic_a}} and {{topic_b}} according to the specified criteria? Is it balanced, insightful, and comprehensive?"
+      - "Respond with TRUE if the comparison is satisfactory, or FALSE if it needs improvement."
+    output: comparison_evaluation
+    loopback_target: comparative_analysis_start
+    loop_limit: 3
+
+- PROMPT:
+    expert: "{{expert}}"
+    inputs:
+      - "Based on my comparative analysis, here are my final recommendations and conclusions about {{topic_a}} versus {{topic_b}}:"
+      - comparison_draft
+      - "I'll now organize this into a clear, structured format with recommendations."
+    output: final_comparison

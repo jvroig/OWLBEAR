@@ -1,0 +1,96 @@
+    def validate_action_structure(self):
+        """Validate the structure of each action in the workflow."""
+        if not self.workflow or 'ACTIONS' not in self.workflow:
+            return
+            
+        # Track all action IDs for validation
+        action_ids = set()
+        for j, act in enumerate(self.workflow['ACTIONS']):
+            act_type = list(act.keys())[0]
+            act_data = act[act_type]
+            if 'id' in act_data:
+                action_ids.add(act_data['id'])
+                
+        for i, action in enumerate(self.workflow['ACTIONS']):
+            if not isinstance(action, dict) or len(action) != 1:
+                self.add_error(f"Action {i+1} has invalid structure: {action}")
+                continue
+                
+            action_type = list(action.keys())[0]
+            action_data = action[action_type]
+            
+            # Validate common action properties
+            if 'output' not in action_data:
+                self.add_error(f"Action {i+1} ({action_type}) is missing 'output' field")
+            
+            if 'expert' not in action_data:
+                self.add_error(f"Action {i+1} ({action_type}) is missing 'expert' field")
+            
+            # Validate action-specific structure
+            if action_type == 'PROMPT':
+                if 'inputs' not in action_data or not action_data['inputs']:
+                    self.add_warning(f"Action {i+1} (PROMPT) has empty or missing 'inputs'")
+                
+                # Check for append-history flag configuration
+                if 'append-history' in action_data and action_data['append-history']:
+                    if 'append-history-type' in action_data:
+                        append_type = action_data['append-history-type']
+                        if append_type not in ['ALL', 'LATEST']:
+                            self.add_warning(f"Action {i+1} (PROMPT) has invalid 'append-history-type' value: {append_type} (must be 'ALL' or 'LATEST')")
+                    
+            elif action_type == 'COMPLEX':
+                # Validate COMPLEX action structure
+                if 'action' not in action_data:
+                    self.add_error(f"Action {i+1} (COMPLEX) is missing 'action' field - must specify which complex action to use")
+                else:
+                    # Check if the complex action exists
+                    action_name = action_data.get('action')
+                    complex_def = load_complex_action(action_name)
+                    if not complex_def:
+                        self.add_error(f"Action {i+1} (COMPLEX) references unknown complex action '{action_name}'")
+                    
+                # Check for expert field
+                if 'expert' not in action_data:
+                    self.add_error(f"Action {i+1} (COMPLEX) is missing 'expert' field")
+                    
+                # Check that data field exists if required by the complex action
+                if 'data' not in action_data:
+                    self.add_warning(f"Action {i+1} (COMPLEX) is missing 'data' field - complex action may require variables")
+                
+            elif action_type == 'DECIDE':
+                if 'inputs' not in action_data or not action_data['inputs']:
+                    self.add_warning(f"Action {i+1} (DECIDE) has empty or missing 'inputs'")
+                
+                # Validate loopback and loopback_target fields
+                has_loopback = 'loopback' in action_data
+                has_loopback_target = 'loopback_target' in action_data
+                
+                if not has_loopback and not has_loopback_target:
+                    self.add_error(f"Action {i+1} (DECIDE) is missing both 'loopback' and 'loopback_target' fields - one is required")
+                
+                if has_loopback and has_loopback_target:
+                    self.add_warning(f"Action {i+1} (DECIDE) has both 'loopback' and 'loopback_target' defined - only one should be used")
+                
+                # Validate numeric loopback
+                if has_loopback:
+                    if not isinstance(action_data['loopback'], int):
+                        self.add_error(f"Action {i+1} (DECIDE) has invalid 'loopback' value: {action_data['loopback']} (must be an integer)")
+                    elif action_data['loopback'] < 1 or action_data['loopback'] > len(self.workflow['ACTIONS']):
+                        self.add_error(f"Action {i+1} (DECIDE) has out-of-range 'loopback' value: {action_data['loopback']} (must be between 1 and {len(self.workflow['ACTIONS'])})")
+                
+                # Validate string loopback_target
+                if has_loopback_target:
+                    target = action_data['loopback_target']
+                    if not isinstance(target, str):
+                        self.add_error(f"Action {i+1} (DECIDE) has invalid 'loopback_target' value: {target} (must be a string ID)")
+                    elif target not in action_ids:
+                        self.add_error(f"Action {i+1} (DECIDE) has unknown 'loopback_target' ID: '{target}' (no action with this ID found)")
+                
+                # Validate loop_limit if present
+                if 'loop_limit' in action_data:
+                    if not isinstance(action_data['loop_limit'], int):
+                        self.add_error(f"Action {i+1} (DECIDE) has invalid 'loop_limit' value: {action_data['loop_limit']} (must be an integer)")
+                    elif action_data['loop_limit'] < 1:
+                        self.add_error(f"Action {i+1} (DECIDE) has invalid 'loop_limit' value: {action_data['loop_limit']} (must be > 0)")
+            else:
+                self.add_error(f"Action {i+1} has unknown action type: {action_type}")

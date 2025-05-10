@@ -29,6 +29,7 @@ from workflow_validator import validate_workflow
 # Import actions
 from actions.prompt import execute_prompt_action
 from actions.decide import execute_decide_action
+from actions.complex import load_complex_action, expand_complex_action
 from inference import call_agent
 
 # Configure logging
@@ -171,6 +172,9 @@ class WorkflowEngine:
                 logger.error("No ACTIONS section found in workflow or ACTIONS is empty")
                 return False
 
+            # Expand complex actions
+            self._expand_complex_actions()
+
             # Always ensure STR_USER_INPUT exists
             if self.user_input:
                 self.string_vars["STR_USER_INPUT"] = self.user_input
@@ -190,6 +194,51 @@ class WorkflowEngine:
         except Exception as e:
             logger.error(f"Failed to load workflow: {str(e)}")
             return False
+            
+    def _expand_complex_actions(self) -> None:
+        """
+        Expand all COMPLEX actions in the workflow to their basic components.
+        This modifies the self.workflow['ACTIONS'] list in place.
+        """
+        if 'ACTIONS' not in self.workflow:
+            return
+            
+        expanded_actions = []
+        for action in self.workflow['ACTIONS']:
+            # Check if this is a COMPLEX action
+            if 'COMPLEX' in action:
+                complex_data = action['COMPLEX']
+                action_name = complex_data.get('action')
+                
+                logger.info(f"Expanding complex action: {action_name}")
+                
+                # Load the complex action definition
+                complex_action_def = load_complex_action(action_name)
+                if not complex_action_def:
+                    logger.error(f"Failed to load complex action '{action_name}'")
+                    # Keep the original action as a placeholder (will fail validation)
+                    expanded_actions.append(action)
+                    continue
+                    
+                # Expand the complex action
+                expanded = expand_complex_action(complex_action_def, complex_data)
+                
+                if not expanded:
+                    logger.error(f"Failed to expand complex action '{action_name}'")
+                    # Keep the original action as a placeholder (will fail validation)
+                    expanded_actions.append(action)
+                    continue
+                    
+                # Add the expanded actions
+                expanded_actions.extend(expanded)
+                logger.info(f"Complex action '{action_name}' expanded into {len(expanded)} basic actions")
+            else:
+                # Not a complex action, keep as-is
+                expanded_actions.append(action)
+                
+        # Replace the actions with the expanded version
+        self.workflow['ACTIONS'] = expanded_actions
+        logger.info(f"Workflow now has {len(expanded_actions)} actions after expansion")
             
     def _extract_required_strings(self) -> List[str]:
         """Extract all string variable references from the workflow that need to be resolved.

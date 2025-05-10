@@ -1,0 +1,29 @@
+STRINGS:
+  STR_intro_prompt: "We need to decide between two potential technology vendors for our customer relationship management (CRM) system upgrade."
+
+ACTIONS:
+  - PROMPT:
+      expert: "CTO"
+      inputs:
+        - STR_intro_prompt
+        - "Please list the key technical criteria we should consider when evaluating CRM systems."
+      output: tech_criteria
+  
+  - COMPLEX:
+      action: comparative_analysis
+      expert: "CTO"
+      data:
+        topic_a: "Salesforce CRM"
+        topic_b: "Microsoft Dynamics 365"
+        instructions: "Analyze the platform in terms of technical capabilities, integration options, scalability, security features, and total cost of ownership."
+        criteria: "Compare these platforms based on: 1) Technical capabilities, 2) Integration options, 3) Scalability, 4) Security, 5) Cost, 6) Ease of implementation, 7) User experience"
+      output: crm_comparison
+  
+  - PROMPT:
+      expert: "CEO"
+      inputs:
+        - STR_intro_prompt
+        - "Our CTO has conducted a comparative analysis of two potential CRM solutions:"
+        - crm_comparison
+        - "Based on this analysis, which solution would you recommend and why? Consider both technical aspects and business value."
+      output: final_recommendation
