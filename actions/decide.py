@@ -19,7 +19,7 @@ from events import (
 
 logger = logging.getLogger("workflow-engine.decide")
 
-def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tuple[bool, Optional[Union[int, str]]]:
+def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
     Execute a DECIDE action.
     
@@ -28,14 +28,13 @@ def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tu
         context: Execution context containing helper functions and state
         
     Returns:
-        tuple: (success, next_step) where next_step is None to continue or an index to loop back to
+        tuple: (success, next_step) where next_step is None to continue or a string ID to loop back to
     """
     try:
         expert = action.get('expert')
         inputs = action.get('inputs', [])
         output_name = action.get('output')
-        # Support both numeric loopback and string loopback_target
-        loopback = action.get('loopback')
+        # Only support string ID-based loopback
         loopback_target = action.get('loopback_target')
         
         step_number = context['step_number']
@@ -44,9 +43,9 @@ def execute_decide_action(action: Dict[str, Any], context: Dict[str, Any]) -> Tu
         call_agent = context['call_agent']
         
         # Detailed logging for debugging
-        logger.info(f"DECIDE ACTION - Step {step_number}: Starting with loopback={loopback} or loopback_target={loopback_target}")
+        logger.info(f"DECIDE ACTION - Step {step_number}: Starting with loopback_target={loopback_target}")
         
-        if not expert or not output_name or (loopback is None and loopback_target is None):
+        if not expert or not output_name or loopback_target is None:
             logger.error(f"Step {step_number}: Missing required fields in DECIDE action")
             return False, None
         
@@ -100,7 +99,6 @@ Your explanation should be specific and actionable, highlighting key strengths o
             'expert': expert,
             'action_type': 'DECIDE',
             'inputs': resolved_inputs,
-            'loopback_value': loopback,
             'loopback_target': loopback_target,
             'current_step': step_number
         }
@@ -123,46 +121,20 @@ Your explanation should be specific and actionable, highlighting key strengths o
             
             return True, None  # Continue to next step
         else:
-            # Determine target step - either by ID or by index
-            if loopback_target is not None:
-                logger.info(f"Step {step_number}: Decision is FALSE - Looping back to target '{loopback_target}'")
-                
-                # Emit step end event
-                emitter.emit_sync(EVENT_STEP_END, 
-                                step_index=step_number-1, 
-                                action_type='DECIDE', 
-                                expert_id=expert, 
-                                description=action.get('description'),
-                                success=True,
-                                decision=False,
-                                loopback_to=loopback_target)
-                
-                return True, loopback_target
-            else:
-                # Original numeric loopback (adjusted for 0-indexing)
-                loopback_value = loopback - 1  # Convert to 0-indexed
-                
-                # Extra detail for debugging
-                logger.info(f"=== DECISION LOOPBACK DETAILS ===")
-                logger.info(f"Current step (1-indexed): {step_number}")
-                logger.info(f"Current step (0-indexed): {step_number - 1}")
-                logger.info(f"Loopback value in YAML (1-indexed): {loopback}")
-                logger.info(f"Adjusted loopback (0-indexed): {loopback_value}")
-                logger.info(f"=== END DECISION LOOPBACK DETAILS ===")
-                
-                logger.info(f"Step {step_number}: Decision is FALSE - Looping back to step {loopback} (1-indexed) / {loopback_value} (0-indexed)")
-                
-                # Emit step end event
-                emitter.emit_sync(EVENT_STEP_END, 
-                                step_index=step_number-1, 
-                                action_type='DECIDE', 
-                                expert_id=expert, 
-                                description=action.get('description'),
-                                success=True,
-                                decision=False,
-                                loopback_to=loopback_value)
-                
-                return True, loopback_value  # Loop back (adjusted for 0-indexing)
+            # ID-based loopback
+            logger.info(f"Step {step_number}: Decision is FALSE - Looping back to target '{loopback_target}'")
+            
+            # Emit step end event
+            emitter.emit_sync(EVENT_STEP_END, 
+                            step_index=step_number-1, 
+                            action_type='DECIDE', 
+                            expert_id=expert, 
+                            description=action.get('description'),
+                            success=True,
+                            decision=False,
+                            loopback_to=loopback_target)
+            
+            return True, loopback_target
     except Exception as e:
         logger.error(f"Step {context['step_number']}: Error in DECIDE action: {str(e)}")
         

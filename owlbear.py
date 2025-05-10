@@ -448,11 +448,6 @@ class WorkflowEngine:
             loopback_target = data.get('loopback_target')
             if loopback_target is not None:
                 self.feedback_cache[loopback_target] = data['explanation']
-            
-            # For numeric loopback
-            loopback_index = data.get('loopback_value')
-            if loopback_index is not None:
-                self.feedback_cache[loopback_index] = data['explanation']
         
         # Save both the regular and versioned output files
         self._save_output_to_file(os.path.join(self.output_dir, f"{name}.yaml"), data)
@@ -631,10 +626,9 @@ class WorkflowEngine:
             elif action_type == 'DECIDE':
                 loop_limit = action_details.get('loop_limit', 10)
                 loop_count = 0
-                loopback = action_details.get('loopback')
                 loopback_target = action_details.get('loopback_target')
                 
-                self.log_debug(f"Starting DECIDE action (step {self.current_step+1}) with loopback={loopback} or loopback_target={loopback_target}")
+                self.log_debug(f"Starting DECIDE action (step {self.current_step+1}) with loopback_target={loopback_target}")
                 
                 while loop_count < loop_limit:
                     self.log_debug(f"DECIDE evaluation #{loop_count+1} at step {self.current_step+1}")
@@ -649,86 +643,39 @@ class WorkflowEngine:
                         self.current_step += 1
                         break
                     else:
-                        # Decision was FALSE, loop back
+                        # Decision was FALSE, loop back using ID-based loopback
                         loop_count += 1
                         
                         # Handle string ID-based loopback target
-                        if isinstance(next_step, str):
-                            if next_step in action_id_map:
-                                target_step = action_id_map[next_step]
-                                self.log_debug(f"DECIDE result: FALSE - Looping back from step {self.current_step+1} to action ID '{next_step}' (step {target_step+1})")
-                                self.log_debug(f"Loop attempt {loop_count}/{loop_limit}")
-                                
-                                logger.info(f"Looping back to action ID '{next_step}' (step {target_step+1}) (attempt {loop_count}/{loop_limit})")
-                                if loop_count >= loop_limit:
-                                    self.log_debug(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
-                                    logger.error(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
-                                    return False
-                                
-                                # Log detailed information about the ID-based loopback
-                                self.log_debug(f"LOOPBACK TRACE (ID-based):")
-                                from_type = self.get_step_type(self.current_step)
-                                to_type = self.get_step_type(target_step)
-                                self.log_debug(f"  From: Step {self.current_step+1} ({from_type}, 0-indexed: {self.current_step})")
-                                self.log_debug(f"  To: Step {target_step+1} ({to_type}, 0-indexed: {target_step})")
-                                self.log_debug(f"  Loopback target ID: '{next_step}'")
-                                
-                                # Reset the current step to the target step
-                                self.log_debug(f"Setting current_step from {self.current_step} to {target_step} (0-indexed) which is step {target_step+1} in workflow")
-                                logger.debug(f"Setting current_step to {target_step} (0-indexed) which is step {target_step+1} in the workflow")
-                                self.current_step = target_step
-                                break
-                            else:
-                                error_msg = f"INVALID LOOPBACK TARGET ID: '{next_step}' is not defined in the workflow"
-                                self.log_debug(error_msg)
-                                logger.error(error_msg)
-                                return False
-                        # Handle numeric loopback (original behavior)
-                        else:
-                            self.log_debug(f"DECIDE result: FALSE - Looping back from step {self.current_step+1} to step {next_step+1} (0-indexed: {next_step})")
+                        if next_step in action_id_map:
+                            target_step = action_id_map[next_step]
+                            self.log_debug(f"DECIDE result: FALSE - Looping back from step {self.current_step+1} to action ID '{next_step}' (step {target_step+1})")
                             self.log_debug(f"Loop attempt {loop_count}/{loop_limit}")
                             
-                            logger.info(f"Looping back to step {next_step + 1} (attempt {loop_count}/{loop_limit})")
+                            logger.info(f"Looping back to action ID '{next_step}' (step {target_step+1}) (attempt {loop_count}/{loop_limit})")
                             if loop_count >= loop_limit:
                                 self.log_debug(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
                                 logger.error(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
                                 return False
                             
-                        # BUGFIX: The problem occurs when a DECIDE action loops back to an earlier step,
-                        # especially when multiple DECIDE actions are chained.
-                        # 
-                        # For clarity and debugging, we're going to add explicit verification that the
-                        # loopback value is valid and properly 0-indexed when we apply it:
-                        
-                        if next_step < 0 or next_step >= len(actions):
-                            error_msg = f"INVALID LOOPBACK: {next_step} is outside workflow range (0-{len(actions)-1})"
+                            # Log detailed information about the ID-based loopback
+                            self.log_debug(f"LOOPBACK TRACE (ID-based):")
+                            from_type = self.get_step_type(self.current_step)
+                            to_type = self.get_step_type(target_step)
+                            self.log_debug(f"  From: Step {self.current_step+1} ({from_type}, 0-indexed: {self.current_step})")
+                            self.log_debug(f"  To: Step {target_step+1} ({to_type}, 0-indexed: {target_step})")
+                            self.log_debug(f"  Loopback target ID: '{next_step}'")
+                            
+                            # Reset the current step to the target step
+                            self.log_debug(f"Setting current_step from {self.current_step} to {target_step} (0-indexed) which is step {target_step+1} in workflow")
+                            logger.debug(f"Setting current_step to {target_step} (0-indexed) which is step {target_step+1} in the workflow")
+                            self.current_step = target_step
+                            break
+                        else:
+                            error_msg = f"INVALID LOOPBACK TARGET ID: '{next_step}' is not defined in the workflow"
                             self.log_debug(error_msg)
                             logger.error(error_msg)
                             return False
-                           
-                        # Log detailed information about the loopback process
-                        self.log_debug(f"LOOPBACK TRACE:")
-                        from_type = self.get_step_type(self.current_step)
-                        to_type = self.get_step_type(next_step)
-                        self.log_debug(f"  From: Step {self.current_step+1} ({from_type}, 0-indexed: {self.current_step})")
-                        self.log_debug(f"  To: Step {next_step+1} ({to_type}, 0-indexed: {next_step})")
-                        self.log_debug(f"  Loopback defined in YAML: {action_details.get('loopback')}")
-                        self.log_debug(f"  Adjusted in decide.py: {action_details.get('loopback')-1}")
-                        
-                        # This verification log will help identify incorrect loopback targets
-                        expected_loopback = action_details.get('loopback') - 1
-                        if next_step != expected_loopback:
-                            self.log_debug(f"WARNING: LOOPBACK MISMATCH - Expected {expected_loopback} but got {next_step}")
-                        
-                        # Reset the current step to the loopback target
-                        self.log_debug(f"Setting current_step from {self.current_step} to {next_step} (0-indexed) which is step {next_step+1} in workflow")
-                        logger.debug(f"Setting current_step to {next_step} (0-indexed) which is step {next_step+1} in the workflow")
-                        self.current_step = next_step
-                        
-                        # FIX: Break out of the DECIDE loop when looping back to allow proper re-evaluation of the action type
-                        # This is the key fix for the workflow orchestration bug
-                        self.log_debug(f"BUGFIX: Breaking out of DECIDE loop to re-evaluate action at step {next_step+1}")
-                        break
             
             else:
                 self.log_debug(f"Unknown action type: {action_type} at step {self.current_step + 1}")

@@ -411,7 +411,7 @@ ACTIONS:
       output: strat_response_01
   
   - COMPLEX:
-      action: polished_output
+      action: test_polished_output
       expert: CEO
       data:
         instruction: "Create a comprehensive response plan to the data breach."
@@ -436,7 +436,7 @@ In this workflow:
 
 Complex Actions are defined in YAML files in the `actions/complex` directory. Each file contains a sequence of basic actions (PROMPT and DECIDE) with variable placeholders.
 
-Example Complex Action definition (`actions/complex/polished_output.yml`):
+Example Complex Action definition (`actions/complex/test_polished_output.yml`):
 ```yaml
 ACTIONS:
 - PROMPT:

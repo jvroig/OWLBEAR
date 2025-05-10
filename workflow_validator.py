@@ -184,22 +184,15 @@ class WorkflowValidator:
                 if 'inputs' not in action_data or not action_data['inputs']:
                     self.add_warning(f"Action {i+1} (DECIDE) has empty or missing 'inputs'")
                 
-                # Validate loopback and loopback_target fields
-                has_loopback = 'loopback' in action_data
+                # Validate loopback_target field is present
                 has_loopback_target = 'loopback_target' in action_data
                 
-                if not has_loopback and not has_loopback_target:
-                    self.add_error(f"Action {i+1} (DECIDE) is missing both 'loopback' and 'loopback_target' fields - one is required")
+                if not has_loopback_target:
+                    self.add_error(f"Action {i+1} (DECIDE) is missing 'loopback_target' field - this is required")
                 
-                if has_loopback and has_loopback_target:
-                    self.add_warning(f"Action {i+1} (DECIDE) has both 'loopback' and 'loopback_target' defined - only one should be used")
-                
-                # Validate numeric loopback
-                if has_loopback:
-                    if not isinstance(action_data['loopback'], int):
-                        self.add_error(f"Action {i+1} (DECIDE) has invalid 'loopback' value: {action_data['loopback']} (must be an integer)")
-                    elif action_data['loopback'] < 1 or action_data['loopback'] > len(self.workflow['ACTIONS']):
-                        self.add_error(f"Action {i+1} (DECIDE) has out-of-range 'loopback' value: {action_data['loopback']} (must be between 1 and {len(self.workflow['ACTIONS'])})")
+                # Show warning if deprecated loopback field is still used
+                if 'loopback' in action_data:
+                    self.add_error(f"Action {i+1} (DECIDE) uses deprecated 'loopback' field - use 'loopback_target' instead")
                 
                 # Validate string loopback_target
                 if has_loopback_target:

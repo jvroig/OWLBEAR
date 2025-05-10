@@ -4,6 +4,7 @@ STRINGS:
 
 ACTIONS:
   - PROMPT:
+      id: Step1
       expert: "CEO"
       inputs:
         - STR_intro_prompt
@@ -18,7 +19,7 @@ ACTIONS:
         - initial_response
         - "Respond with TRUE if the response is satisfactory, or FALSE if we should try again."
       output: decision_result
-      loopback: 1
+      loopback_target: Step1
       loop_limit: 3
   
   - PROMPT:

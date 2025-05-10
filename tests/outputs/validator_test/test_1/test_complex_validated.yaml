@@ -8,7 +8,7 @@ ACTIONS:
       a response plan.
     output: strat_response_01
 - COMPLEX:
-    action: polished_output
+    action: test_polished_output
     data:
       and_another: The plan should be actionable, clear, and demonstrate our commitment
         to customer privacy.

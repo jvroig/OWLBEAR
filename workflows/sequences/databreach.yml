@@ -4,6 +4,7 @@ STRINGS:
 
 ACTIONS:
   - PROMPT:
+      id: strategic_thinking
       expert: "Strategic Thinking Partner"
       inputs:
         - STR_intro_prompt
@@ -35,7 +36,7 @@ ACTIONS:
         - ceo_synthesis_01
         - If you think this is good enough as the final response plan, say TRUE.
       output: ceo_greenlight
-      loopback: 1
+      loopback_target: strategic_thinking
       loop_limit: 10
 
   - PROMPT:
