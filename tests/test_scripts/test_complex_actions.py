@@ -2,25 +2,41 @@
 # test_complex_actions.py
 import yaml
 import os
+import sys
 import logging
+
+# Add the parent directory to the path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+
 from actions.complex import load_complex_action, expand_complex_action
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("test-complex-actions")
 
+def get_test_file_path(relative_path):
+    """Helper to get a path relative to the tests directory"""
+    test_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(test_dir, relative_path)
+
 def test_complex_action_expansion():
     """Test loading and expanding a complex action."""
     
     # 1. Load the complex action definition
-    complex_action_name = "polished_output"
-    complex_def = load_complex_action(complex_action_name)
+    complex_action_path = get_test_file_path("sample_complex_actions/polished_output.yml")
     
-    if not complex_def:
-        logger.error(f"Failed to load complex action: {complex_action_name}")
+    try:
+        with open(complex_action_path, 'r') as file:
+            complex_def = yaml.safe_load(file)
+    except Exception as e:
+        logger.error(f"Failed to load complex action from {complex_action_path}: {str(e)}")
         return False
     
-    logger.info(f"Successfully loaded complex action: {complex_action_name}")
+    if not complex_def:
+        logger.error(f"Failed to load complex action: Empty or invalid YAML")
+        return False
+    
+    logger.info(f"Successfully loaded complex action from: {complex_action_path}")
     
     # 2. Define action data similar to what would be in a workflow
     action_data = {
@@ -56,7 +72,7 @@ def test_complex_action_in_workflow():
     """Test how a complex action would be expanded within a workflow."""
     
     # 1. Load a sample workflow
-    workflow_path = "workflows/sequences/test_complex.yml"
+    workflow_path = get_test_file_path("sample_workflows/sequences/test_complex.yml")
     try:
         with open(workflow_path, 'r') as file:
             workflow = yaml.safe_load(file)
@@ -85,9 +101,12 @@ def test_complex_action_in_workflow():
             action_name = complex_data.get('action')
             
             # Load the complex action definition
-            complex_def = load_complex_action(action_name)
-            if not complex_def:
-                logger.error(f"Failed to load complex action '{action_name}'")
+            complex_action_path = get_test_file_path(f"sample_complex_actions/{action_name}.yml")
+            try:
+                with open(complex_action_path, 'r') as file:
+                    complex_def = yaml.safe_load(file)
+            except Exception as e:
+                logger.error(f"Failed to load complex action '{action_name}': {str(e)}")
                 continue
                 
             # Expand the complex action
@@ -119,3 +138,4 @@ if __name__ == "__main__":
     print("\n=== Testing Complex Action in Workflow ===")
     if not test_complex_action_in_workflow():
         print("Complex action in workflow test failed!")
+

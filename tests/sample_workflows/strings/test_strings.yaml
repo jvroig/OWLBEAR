@@ -1,0 +1,8 @@
+VARIABLES:
+  test_name: "Test User"
+  company_name: "OWLBEAR Inc."
+  project_name: "Project Complex Actions"
+
+STR_intro_prompt: "We are conducting a test of the complex actions feature in OWLBEAR."
+STR_delimiter: "*********************************************"
+STR_test_variable: "This is a test variable with {{test_name}} from {{company_name}} working on {{project_name}}."
