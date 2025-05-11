@@ -178,3 +178,4 @@ outputs/**
 endpoint_config.yaml
 artifacts/**
 **/.DS_Store
+tests/outputs/pytest_temp/*
