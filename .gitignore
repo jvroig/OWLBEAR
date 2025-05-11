@@ -178,4 +178,5 @@ outputs/**
 endpoint_config.yaml
 artifacts/**
 **/.DS_Store
-tests/outputs/pytest_temp/*
+tests/outputs/owlbear_test/
+tests/outputs/validator_test/
