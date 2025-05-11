@@ -1,5 +1,0 @@
-VARIABLES:
-  name: Jane
-  company: XYZ Corp
-STR_external_greeting: Hello {{name}}, welcome to {{company}}!
-STR_external_purpose: This is a test with external strings.
