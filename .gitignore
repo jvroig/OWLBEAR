@@ -180,3 +180,4 @@ artifacts/**
 **/.DS_Store
 tests/outputs/owlbear_test/
 tests/outputs/validator_test/
+tests/outputs/pytest_temp/
