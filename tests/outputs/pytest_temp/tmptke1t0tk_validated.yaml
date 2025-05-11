@@ -1,0 +1,15 @@
+ACTIONS:
+- PROMPT:
+    expert: CEO
+    inputs:
+    - Test prompt
+    output: output_1
+    id: step_1
+- DECIDE:
+    expert: CEO
+    inputs:
+    - Evaluate this output
+    - output_1
+    output: decision_result
+    loopback_target: step_1
+    loop_limit: 3

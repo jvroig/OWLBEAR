@@ -53,6 +53,8 @@ def patch_complex_action_loader(monkeypatch):
     Monkey patch the load_complex_action function to look in the test directory.
     This is applied to all tests automatically.
     """
+    import logging  # Add missing import
+    
     def mock_load_complex_action(action_name):
         test_dir = os.path.dirname(os.path.abspath(__file__))
         # Try with both file extensions
@@ -72,10 +74,9 @@ def patch_complex_action_loader(monkeypatch):
         logger.error(f"Complex action '{action_name}' not found in {test_dir}/sample_complex_actions")
         return None
     
-    # Apply the monkey patch more aggressively to ensure it takes effect
+    # Apply the monkey patch directly to actions.complex module
     import actions.complex
-    # Make sure the original function is completely replaced
-    monkeypatch.setattr('actions.complex.load_complex_action', mock_load_complex_action)
+    monkeypatch.setattr(actions.complex, 'load_complex_action', mock_load_complex_action)
 
 @pytest.fixture
 def mock_expert_call():
@@ -83,7 +84,11 @@ def mock_expert_call():
     with patch('owlbear.call_agent') as mock:
         # Setup default response behavior
         def default_response(expert, prompt):
-            # Create a properly structured response that won't cause recursion issues
+            # Convert any non-string prompt to a string to avoid serialization issues
+            if not isinstance(prompt, str):
+                prompt = str(prompt)
+                
+            # Create a properly structured response
             return {
                 'history': [
                     {'role': 'user', 'content': prompt},
@@ -111,7 +116,8 @@ def mock_decide_call():
             # Only increment for DECIDE-like prompts
             if isinstance(prompt, str) and any(term in prompt.lower() for term in ['decide', 'evaluate', 'true', 'false']):
                 # Get the decision (True/False) - default to True if we run out
-                decision = decisions[min(call_count, len(decisions)-1)]
+                decision_index = min(call_count, len(decisions)-1)
+                decision = decisions[decision_index]
                 call_count += 1
                 
                 # Create a properly formatted response
@@ -141,6 +147,10 @@ def mock_decide_call():
     
     # Use a new patch for each call to avoid shared state
     def setup_decisions(decision_sequence):
+        # Ensure we have at least one decision
+        if not decision_sequence:
+            decision_sequence = [True]
+        
         mock = patch('owlbear.call_agent').start()
         mock.side_effect = decide_response_factory(decision_sequence)
         return mock
