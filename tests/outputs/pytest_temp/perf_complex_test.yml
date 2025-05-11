@@ -1,0 +1,83 @@
+STRINGS:
+  STR_test: This is a test string
+ACTIONS:
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 0
+      another_data: Additional data for complex action 0
+      and_another: More data for complex action 0
+    output: complex_output_0
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 1
+      another_data: Additional data for complex action 1
+      and_another: More data for complex action 1
+    output: complex_output_1
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 2
+      another_data: Additional data for complex action 2
+      and_another: More data for complex action 2
+    output: complex_output_2
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 3
+      another_data: Additional data for complex action 3
+      and_another: More data for complex action 3
+    output: complex_output_3
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 4
+      another_data: Additional data for complex action 4
+      and_another: More data for complex action 4
+    output: complex_output_4
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 5
+      another_data: Additional data for complex action 5
+      and_another: More data for complex action 5
+    output: complex_output_5
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 6
+      another_data: Additional data for complex action 6
+      and_another: More data for complex action 6
+    output: complex_output_6
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 7
+      another_data: Additional data for complex action 7
+      and_another: More data for complex action 7
+    output: complex_output_7
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 8
+      another_data: Additional data for complex action 8
+      and_another: More data for complex action 8
+    output: complex_output_8
+- COMPLEX:
+    action: polished_output
+    expert: CEO
+    data:
+      instruction: Instruction for complex action 9
+      another_data: Additional data for complex action 9
+      and_another: More data for complex action 9
+    output: complex_output_9
