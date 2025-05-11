@@ -7,18 +7,24 @@ from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger("workflow-engine.complex")
 
-def load_complex_action(action_name: str) -> Optional[Dict[str, Any]]:
+def load_complex_action(action_name: str, complex_actions_path: str = None) -> Optional[Dict[str, Any]]:
     """
     Load a complex action definition from a YAML file.
     
     Args:
         action_name: The name of the complex action to load
+        complex_actions_path: Optional custom path to look for complex actions 
+                             (default: None, uses standard path 'actions/complex')
         
     Returns:
         dict: The complex action definition, or None if not found
     """
-    # Get the actions/complex directory
-    complex_dir = os.path.join(os.path.dirname(__file__), 'complex')
+    # Get the actions/complex directory or use the provided path
+    if complex_actions_path is None:
+        # Use the default path: actions/complex
+        complex_dir = os.path.join(os.path.dirname(__file__), 'complex')
+    else:
+        complex_dir = complex_actions_path
     
     # Try with both .yml and .yaml extensions
     for extension in ['.yml', '.yaml']:

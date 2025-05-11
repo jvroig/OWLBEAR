@@ -10,7 +10,7 @@ collecting ... collected 56 items
 tests/integration/test_workflow_execution.py::test_simple_workflow_execution PASSED [  1%]
 tests/integration/test_workflow_execution.py::test_multistep_workflow_execution PASSED [  3%]
 tests/integration/test_workflow_execution.py::test_workflow_with_decide_action PASSED [  5%]
-tests/integration/test_workflow_execution.py::test_complex_action_execution SKIPPED [  7%]
+tests/integration/test_workflow_execution.py::test_complex_action_execution PASSED [  7%]
 tests/integration/test_workflow_execution.py::test_workflow_with_variables PASSED [  8%]
 tests/integration/test_workflow_execution.py::test_workflow_with_external_strings PASSED [ 10%]
 tests/performance/test_performance.py::test_workflow_loading_performance PASSED [ 12%]
@@ -92,4 +92,4 @@ tests/test_scripts/test_complex_actions.py::test_complex_action_in_workflow
     warnings.warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================== 55 passed, 1 skipped, 6 warnings in 0.50s ===================
+======================== 56 passed, 6 warnings in 0.54s ========================

@@ -105,13 +105,18 @@ def test_workflow_with_decide_action(mock_decide_call, test_files_path, temp_out
 
 @pytest.mark.integration
 @patch('owlbear.call_agent')
-def test_complex_action_execution(mock_call_agent, test_files_path, temp_output_dir, monkeypatch):
+def test_complex_action_execution(mock_call_agent, test_files_path, temp_output_dir):
     """Test execution of a workflow with a COMPLEX action."""
-    # Skip this test since it's checking actual COMPLEX actions which we test elsewhere
-    pytest.skip("Skipping integration test for complex actions - this is covered by unit tests")
-    
     # Set up mock responses
     mock_call_agent.return_value = create_mock_expert_response("Complex action response")
+    
+    # Get path to test complex actions
+    test_complex_dir = test_files_path("sample_complex_actions")
+    
+    # Ensure the complex action file exists in our test directory
+    complex_action_path = os.path.join(test_complex_dir, "polished_output.yml")
+    if not os.path.exists(complex_action_path):
+        pytest.skip(f"Complex action file not found: {complex_action_path}")
     
     # Create a workflow with a COMPLEX action
     actions = [
@@ -122,34 +127,18 @@ def test_complex_action_execution(mock_call_agent, test_files_path, temp_output_
     ]
     workflow = create_sample_workflow(actions)
     
-    # Mock the complex action loader to return a valid action
-    def mock_load_complex_action(action_name):
-        if action_name == "polished_output":
-            return {
-                "ACTIONS": [
-                    {
-                        "PROMPT": {
-                            "expert": "{{expert}}",
-                            "inputs": ["Test input"],
-                            "output": "test_output"
-                        }
-                    }
-                ]
-            }
-        return None
-    
-    # Apply the mock
-    import actions.complex
-    monkeypatch.setattr(actions.complex, 'load_complex_action', mock_load_complex_action)
-    
     with temp_workflow_file(workflow) as workflow_path:
-        # Execute the workflow with skip_validation to avoid validation issues
-        engine = WorkflowEngine(workflow_path, skip_validation=True)
+        # Execute the workflow with custom complex actions path
+        engine = WorkflowEngine(
+            workflow_path, 
+            skip_validation=True,
+            complex_actions_path=test_complex_dir
+        )
         result = engine.run()
         
-        # Check the result
+        # Check the result - this now tests the actual OWLBEAR implementation
         assert result is True
-        # The mock should have been called at least once
+        # The expert should have been called at least once
         assert mock_call_agent.call_count > 0
         # The engine should have output variables
         assert len(engine.output_vars) > 0

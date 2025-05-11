@@ -154,7 +154,12 @@ def test_complex_action_expansion_performance(mock_call_agent, test_files_path, 
     # Measure time to load and expand workflow
     start_time = time.time()
     
-    engine = WorkflowEngine(workflow_path, skip_validation=True)
+    # Use the custom complex_actions_path so we'll test actual expansion
+    engine = WorkflowEngine(
+        workflow_path, 
+        skip_validation=True,
+        complex_actions_path=complex_action_dir
+    )
     load_result = engine.load_workflow()
     
     expansion_time = time.time() - start_time
@@ -162,11 +167,10 @@ def test_complex_action_expansion_performance(mock_call_agent, test_files_path, 
     # Assertions
     assert load_result is True
     
-    # Check only that the workflow loaded properly
-    # Whether complex actions expanded or not depends on whether monkey patching worked
-    # which we test in other tests, not performance tests
+    # Now we expect the actions to actually expand since we're providing the path
     assert 'ACTIONS' in engine.workflow
-    assert len(engine.workflow['ACTIONS']) >= 1
+    # Each complex action expands to 3 basic actions, so 10 complex → 30 basic
+    assert len(engine.workflow['ACTIONS']) == 30, "Complex actions should be expanded"
     
     # Performance threshold
     assert expansion_time < 1.0, f"Complex action expansion took too long: {expansion_time} seconds"

@@ -41,13 +41,19 @@ load_dotenv()
 
 
 class WorkflowEngine:
-    def __init__(self, workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None, skip_validation: bool = False, event_logger: Optional[Any] = None):
+    def __init__(self, workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None, 
+                 skip_validation: bool = False, event_logger: Optional[Any] = None,
+                 actions_path: Optional[str] = None, complex_actions_path: Optional[str] = None):
         """Initialize the workflow engine with a YAML workflow definition file.
         
         Args:
             workflow_path: Path to the workflow YAML file
             user_input: Optional user input to be stored as STR_USER_INPUT
             strings_path: Optional path to a separate YAML file containing string variables
+            skip_validation: Whether to skip validation
+            event_logger: Optional event logger for external integrations
+            actions_path: Optional custom path for actions (default: "actions")
+            complex_actions_path: Optional custom path for complex actions (default: "actions/complex")
         """
         self.workflow_path = workflow_path
         self.strings_path = strings_path
@@ -59,6 +65,10 @@ class WorkflowEngine:
         self.variables = {}  # Store variables for template substitution
         self.skip_validation = skip_validation
         self.validated = False
+        
+        # Store paths for actions and complex actions with defaults
+        self.actions_path = actions_path  # Default to None, standard path used in methods
+        self.complex_actions_path = complex_actions_path  # Default to None, standard path used in methods
         
         # New attributes for enhanced DECIDE functionality
         self.execution_counts = {}  # Track execution counts for each output variable
@@ -212,8 +222,8 @@ class WorkflowEngine:
                 
                 logger.info(f"Expanding complex action: {action_name}")
                 
-                # Load the complex action definition
-                complex_action_def = load_complex_action(action_name)
+                # Load the complex action definition, using custom path if provided
+                complex_action_def = load_complex_action(action_name, self.complex_actions_path)
                 if not complex_action_def:
                     logger.error(f"Failed to load complex action '{action_name}'")
                     # Keep the original action as a placeholder (will fail validation)
@@ -701,18 +711,30 @@ class WorkflowEngine:
         return True
 
 
-def run_workflow(workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None, skip_validation: bool = False) -> bool:
+def run_workflow(workflow_path: str, user_input: Optional[str] = None, strings_path: Optional[str] = None, 
+              skip_validation: bool = False, actions_path: Optional[str] = None, 
+              complex_actions_path: Optional[str] = None) -> bool:
     """Helper function to run a workflow from a file path.
     
     Args:
         workflow_path: Path to the workflow YAML file
         user_input: Optional user input to be stored as STR_USER_INPUT
         strings_path: Optional path to a separate YAML file containing string variables
+        skip_validation: Whether to skip validation
+        actions_path: Optional custom path for actions
+        complex_actions_path: Optional custom path for complex actions
         
     Returns:
         bool: True if the workflow was executed successfully, False otherwise
     """
-    engine = WorkflowEngine(workflow_path, user_input, strings_path, skip_validation)
+    engine = WorkflowEngine(
+        workflow_path, 
+        user_input, 
+        strings_path, 
+        skip_validation,
+        actions_path=actions_path,
+        complex_actions_path=complex_actions_path
+    )
     return engine.run()
 
 
@@ -725,6 +747,8 @@ if __name__ == "__main__":
     parser.add_argument('--strings', '-s', help='Path to a separate YAML file containing string variables. This allows decoupling string variables from workflow definitions.')
     parser.add_argument('--skip-validation', action='store_true', help='Skip workflow validation before execution')
     parser.add_argument('--validate-only', action='store_true', help='Only validate the workflow without executing it')
+    parser.add_argument('--actions-path', help='Custom path for actions directory (default: "actions")')
+    parser.add_argument('--complex-actions-path', help='Custom path for complex actions directory (default: "actions/complex")')
     
     args = parser.parse_args()
     
@@ -738,8 +762,19 @@ if __name__ == "__main__":
         logger.info("Skipping workflow validation")
     if args.validate_only:
         logger.info("Running in validation-only mode")
+    if args.actions_path:
+        logger.info(f"Using custom actions path: {args.actions_path}")
+    if args.complex_actions_path:
+        logger.info(f"Using custom complex actions path: {args.complex_actions_path}")
     
-    engine = WorkflowEngine(args.workflow, args.user_input, args.strings, args.skip_validation)
+    engine = WorkflowEngine(
+        args.workflow, 
+        args.user_input, 
+        args.strings, 
+        args.skip_validation,
+        actions_path=args.actions_path,
+        complex_actions_path=args.complex_actions_path
+    )
     
     if args.validate_only:
         # Run validation only

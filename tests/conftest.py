@@ -47,31 +47,49 @@ def complex_action_path():
     return _get_complex_action_path
 
 # Add a monkey patch for the complex action loading function
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False) # Changed to non-autouse since we're now using configurable paths
 def patch_complex_action_loader(monkeypatch):
     """
     Monkey patch the load_complex_action function to look in the test directory.
-    This is applied to all tests automatically.
+    This fixture is only used for tests that don't explicitly specify complex_actions_path.
     """
     import logging  # Add missing import
     
-    def mock_load_complex_action(action_name):
-        test_dir = os.path.dirname(os.path.abspath(__file__))
-        # Try with both file extensions
-        for ext in ['.yml', '.yaml']:
-            action_path = os.path.join(test_dir, f"sample_complex_actions/{action_name}{ext}")
-            if os.path.exists(action_path):
-                try:
-                    with open(action_path, 'r') as file:
-                        return yaml.safe_load(file)
-                except Exception as e:
-                    logger = logging.getLogger("workflow-engine.complex")
-                    logger.error(f"Failed to load complex action '{action_name}': {str(e)}")
-                    return None
+    def mock_load_complex_action(action_name, complex_actions_path=None):
+        # If a path is explicitly provided, use it (this allows our new approach to work)
+        if complex_actions_path is not None:
+            # Use the standard function with the provided path
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            # Try with both file extensions
+            for ext in ['.yml', '.yaml']:
+                action_path = os.path.join(complex_actions_path, f"{action_name}{ext}")
+                if os.path.exists(action_path):
+                    try:
+                        with open(action_path, 'r') as file:
+                            return yaml.safe_load(file)
+                    except Exception as e:
+                        logger = logging.getLogger("workflow-engine.complex")
+                        logger.error(f"Failed to load complex action '{action_name}': {str(e)}")
+                        return None
+        else:
+            # For backward compatibility, look in the test directory if no path is specified
+            test_dir = os.path.dirname(os.path.abspath(__file__))
+            # Try with both file extensions
+            for ext in ['.yml', '.yaml']:
+                action_path = os.path.join(test_dir, f"sample_complex_actions/{action_name}{ext}")
+                if os.path.exists(action_path):
+                    try:
+                        with open(action_path, 'r') as file:
+                            return yaml.safe_load(file)
+                    except Exception as e:
+                        logger = logging.getLogger("workflow-engine.complex")
+                        logger.error(f"Failed to load complex action '{action_name}': {str(e)}")
+                        return None
         
         # If we get here, the file was not found
         logger = logging.getLogger("workflow-engine.complex")
-        logger.error(f"Complex action '{action_name}' not found in {test_dir}/sample_complex_actions")
+        path_used = complex_actions_path or f"{test_dir}/sample_complex_actions"
+        logger.error(f"Complex action '{action_name}' not found in {path_used}")
         return None
     
     # Apply the monkey patch directly to actions.complex module
