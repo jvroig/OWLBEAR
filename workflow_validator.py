@@ -17,13 +17,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger("workflow-validator")
 
 class WorkflowValidator:
-    def __init__(self, workflow_path: str, strings_path: Optional[str] = None, output_dir: Optional[str] = None):
+    def __init__(self, workflow_path: str, strings_path: Optional[str] = None, output_dir: Optional[str] = None, complex_actions_path: Optional[str] = None):
         """Initialize the workflow validator.
         
         Args:
             workflow_path: Path to the workflow YAML file
             strings_path: Optional path to a separate YAML file containing string variables
             output_dir: Optional output directory for the validated workflow
+            complex_actions_path: Optional custom path for complex actions
         """
         self.workflow_path = workflow_path
         self.strings_path = strings_path
@@ -33,6 +34,7 @@ class WorkflowValidator:
         self.validation_errors = []
         self.validation_warnings = []
         self.output_dir = output_dir
+        self.complex_actions_path = complex_actions_path
         
         # Create output directory if specified
         if output_dir:
@@ -168,7 +170,7 @@ class WorkflowValidator:
                 else:
                     # Check if the complex action exists
                     action_name = action_data.get('action')
-                    complex_def = load_complex_action(action_name)
+                    complex_def = load_complex_action(action_name, self.complex_actions_path)
                     if not complex_def:
                         self.add_error(f"Action {i+1} (COMPLEX) references unknown complex action '{action_name}'")
                     
@@ -331,18 +333,19 @@ class WorkflowValidator:
         return True, ""
 
 
-def validate_workflow(workflow_path: str, strings_path: Optional[str] = None, output_dir: Optional[str] = None) -> Tuple[bool, str]:
+def validate_workflow(workflow_path: str, strings_path: Optional[str] = None, output_dir: Optional[str] = None, complex_actions_path: Optional[str] = None) -> Tuple[bool, str]:
     """Validate a workflow.
     
     Args:
         workflow_path: Path to the workflow YAML file
         strings_path: Optional path to a separate YAML file containing string variables
         output_dir: Optional output directory for the validated workflow
+        complex_actions_path: Optional custom path for complex actions
         
     Returns:
         tuple: (success, output_path)
     """
-    validator = WorkflowValidator(workflow_path, strings_path, output_dir)
+    validator = WorkflowValidator(workflow_path, strings_path, output_dir, complex_actions_path)
     return validator.validate()
 
 

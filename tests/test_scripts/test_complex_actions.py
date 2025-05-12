@@ -30,11 +30,10 @@ def test_complex_action_expansion():
             complex_def = yaml.safe_load(file)
     except Exception as e:
         logger.error(f"Failed to load complex action from {complex_action_path}: {str(e)}")
-        return False
+        assert False, f"Failed to load complex action: {str(e)}"
     
-    if not complex_def:
-        logger.error(f"Failed to load complex action: Empty or invalid YAML")
-        return False
+    # Use assertion instead of if-return
+    assert complex_def is not None, "Failed to load complex action: Empty or invalid YAML"
     
     logger.info(f"Successfully loaded complex action from: {complex_action_path}")
     
@@ -53,9 +52,8 @@ def test_complex_action_expansion():
     # 3. Expand the complex action
     expanded_actions = expand_complex_action(complex_def, action_data)
     
-    if not expanded_actions:
-        logger.error("Failed to expand complex action")
-        return False
+    # Use assertion instead of if-return
+    assert expanded_actions is not None, "Failed to expand complex action"
     
     logger.info(f"Successfully expanded complex action into {len(expanded_actions)} basic actions")
     
@@ -65,8 +63,6 @@ def test_complex_action_expansion():
     for i, action in enumerate(expanded_actions):
         print(f"\nAction {i+1}:")
         print(yaml.dump(action, default_flow_style=False))
-    
-    return True
 
 def test_complex_action_in_workflow():
     """Test how a complex action would be expanded within a workflow."""
@@ -78,7 +74,7 @@ def test_complex_action_in_workflow():
             workflow = yaml.safe_load(file)
     except Exception as e:
         logger.error(f"Failed to load workflow {workflow_path}: {str(e)}")
-        return False
+        assert False, f"Failed to load workflow: {str(e)}"
     
     # 2. Find complex actions in the workflow
     complex_actions = []
@@ -86,9 +82,8 @@ def test_complex_action_in_workflow():
         if 'COMPLEX' in action:
             complex_actions.append((i, action['COMPLEX']))
     
-    if not complex_actions:
-        logger.error(f"No complex actions found in workflow {workflow_path}")
-        return False
+    # Use assertion instead of if-return
+    assert len(complex_actions) > 0, f"No complex actions found in workflow {workflow_path}"
     
     logger.info(f"Found {len(complex_actions)} complex actions in workflow {workflow_path}")
     
@@ -101,20 +96,22 @@ def test_complex_action_in_workflow():
             action_name = complex_data.get('action')
             
             # Load the complex action definition
+            # Make sure to look for the polished_output.yml file if action_name is test_polished_output
+            if action_name == 'test_polished_output':
+                action_name = 'polished_output'
             complex_action_path = get_test_file_path(f"sample_complex_actions/{action_name}.yml")
             try:
                 with open(complex_action_path, 'r') as file:
                     complex_def = yaml.safe_load(file)
             except Exception as e:
                 logger.error(f"Failed to load complex action '{action_name}': {str(e)}")
-                continue
+                assert False, f"Failed to load complex action '{action_name}': {str(e)}"
                 
             # Expand the complex action
             expanded = expand_complex_action(complex_def, complex_data)
             
-            if not expanded:
-                logger.error(f"Failed to expand complex action '{action_name}'")
-                continue
+            # Use assertion instead of if-continue
+            assert expanded is not None, f"Failed to expand complex action '{action_name}'"
                 
             # Add the expanded actions
             expanded_workflow['ACTIONS'].extend(expanded)
@@ -127,15 +124,17 @@ def test_complex_action_in_workflow():
     print("\nExpanded workflow:")
     print("=" * 50)
     print(yaml.dump(expanded_workflow, default_flow_style=False))
-    
-    return True
 
 if __name__ == "__main__":
-    print("\n=== Testing Complex Action Expansion ===")
-    if not test_complex_action_expansion():
-        print("Complex action expansion test failed!")
-    
-    print("\n=== Testing Complex Action in Workflow ===")
-    if not test_complex_action_in_workflow():
-        print("Complex action in workflow test failed!")
-
+    try:
+        print("\n=== Testing Complex Action Expansion ===")
+        test_complex_action_expansion()
+        
+        print("\n=== Testing Complex Action in Workflow ===")
+        test_complex_action_in_workflow()
+        
+        print("\nAll tests passed!")
+        exit(0)
+    except AssertionError as e:
+        print(f"\nTest failed: {str(e)}")
+        exit(1)

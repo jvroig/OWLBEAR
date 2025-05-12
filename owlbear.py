@@ -520,7 +520,8 @@ class WorkflowEngine:
         success, output_path = validate_workflow(
             self.workflow_path, 
             self.strings_path, 
-            self.output_dir
+            self.output_dir,
+            self.complex_actions_path
         )
         
         self.validated = True

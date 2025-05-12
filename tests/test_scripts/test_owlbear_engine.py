@@ -51,6 +51,7 @@ class TestOwlbearEngine(unittest.TestCase):
         """Test expansion of complex actions in the workflow"""
         # Create a workflow engine instance with a test workflow
         workflow_path = get_test_file_path("sample_workflows/sequences/test_complex.yml")
+        complex_actions_path = get_test_file_path("sample_complex_actions")
         
         # Just as a debug check, ensure file exists
         self.assertTrue(os.path.exists(workflow_path), f"Test workflow file not found: {workflow_path}")
@@ -70,7 +71,7 @@ class TestOwlbearEngine(unittest.TestCase):
         self.assertGreater(complex_actions_original, 0, "No COMPLEX actions found in original workflow")
         
         # Now use the engine to load and expand
-        engine = WorkflowEngine(workflow_path)
+        engine = WorkflowEngine(workflow_path, complex_actions_path=complex_actions_path)
         result = engine.load_workflow()
         self.assertTrue(result, "Failed to load workflow")
         
@@ -115,7 +116,8 @@ class TestOwlbearEngine(unittest.TestCase):
         
         # Create a workflow engine instance with a simplified test workflow
         workflow_path = get_test_file_path("sample_workflows/sequences/test_complex.yml")
-        engine = WorkflowEngine(workflow_path, skip_validation=True)
+        complex_actions_path = get_test_file_path("sample_complex_actions")
+        engine = WorkflowEngine(workflow_path, skip_validation=True, complex_actions_path=complex_actions_path)
         
         # Run the workflow
         result = engine.run()

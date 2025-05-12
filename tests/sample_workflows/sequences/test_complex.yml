@@ -10,7 +10,7 @@ ACTIONS:
       output: strat_response_01
   
   - COMPLEX:
-      action: test_polished_output
+      action: polished_output
       expert: CEO
       data:
         instruction: "Create a comprehensive response plan to the data breach based on the strategic thinking partner's suggestions."

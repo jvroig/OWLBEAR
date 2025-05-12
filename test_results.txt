@@ -3,6 +3,7 @@ platform darwin -- Python 3.9.6, pytest-8.3.5, pluggy-1.5.0 -- /Users/jvroig/Dev
 cachedir: .pytest_cache
 rootdir: /Users/jvroig/Dev/OWLBEAR
 configfile: pytest.ini
+testpaths: tests
 plugins: anyio-4.9.0, asyncio-0.26.0, mock-3.14.0, cov-6.1.1
 asyncio: mode=auto, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collecting ... collected 56 items
@@ -20,11 +21,11 @@ tests/performance/test_performance.py::test_workflow_validator_performance PASSE
 tests/performance/test_performance.py::test_memory_usage_large_workflow PASSED [ 19%]
 tests/test_scripts/test_complex_action_loading.py::test_complex_action_loading PASSED [ 21%]
 tests/test_scripts/test_complex_actions.py::test_complex_action_expansion PASSED [ 23%]
-tests/test_scripts/test_complex_actions.py::test_complex_action_in_workflow PASSED [ 25%]
-tests/test_scripts/test_owlbear_engine.py::TestOwlbearEngine::test_complex_action_expansion PASSED [ 26%]
+tests/test_scripts/test_complex_actions.py::test_complex_action_in_workflow FAILED [ 25%]
+tests/test_scripts/test_owlbear_engine.py::TestOwlbearEngine::test_complex_action_expansion FAILED [ 26%]
 tests/test_scripts/test_owlbear_engine.py::TestOwlbearEngine::test_decide_workflow PASSED [ 28%]
 tests/test_scripts/test_owlbear_engine.py::TestOwlbearEngine::test_load_workflow PASSED [ 30%]
-tests/test_scripts/test_owlbear_engine.py::TestOwlbearEngine::test_workflow_execution PASSED [ 32%]
+tests/test_scripts/test_owlbear_engine.py::TestOwlbearEngine::test_workflow_execution FAILED [ 32%]
 tests/unit/test_complex_actions.py::test_load_complex_action PASSED      [ 33%]
 tests/unit/test_complex_actions.py::test_substitute_variables PASSED     [ 35%]
 tests/unit/test_complex_actions.py::test_expand_complex_action PASSED    [ 37%]
@@ -49,8 +50,8 @@ tests/unit/test_id_based_loopback.py::test_nested_loopback_with_complex_actions 
 tests/unit/test_owlbear_engine.py::test_engine_initialization PASSED     [ 71%]
 tests/unit/test_owlbear_engine.py::test_engine_load_workflow PASSED      [ 73%]
 tests/unit/test_owlbear_engine.py::test_engine_load_strings PASSED       [ 75%]
-tests/unit/test_owlbear_engine.py::test_engine_expand_complex_actions PASSED [ 76%]
-tests/unit/test_owlbear_engine.py::test_engine_validate_workflow PASSED  [ 78%]
+tests/unit/test_owlbear_engine.py::test_engine_expand_complex_actions FAILED [ 76%]
+tests/unit/test_owlbear_engine.py::test_engine_validate_workflow FAILED  [ 78%]
 tests/unit/test_owlbear_engine.py::test_engine_resolve_input PASSED      [ 80%]
 tests/unit/test_owlbear_engine.py::test_engine_run_simple_workflow PASSED [ 82%]
 tests/unit/test_owlbear_engine.py::test_engine_decide_action_true PASSED [ 83%]
@@ -64,22 +65,389 @@ tests/unit/test_workflow_validator.py::test_workflow_validator_finds_errors PASS
 tests/unit/test_workflow_validator.py::test_workflow_validator_validates_valid_workflow PASSED [ 98%]
 tests/unit/test_workflow_validator.py::test_workflow_validator_expands_variables PASSED [100%]
 
+=================================== FAILURES ===================================
+_______________________ test_complex_action_in_workflow ________________________
+
+    def test_complex_action_in_workflow():
+        """Test how a complex action would be expanded within a workflow."""
+    
+        # 1. Load a sample workflow
+        workflow_path = get_test_file_path("sample_workflows/sequences/test_complex.yml")
+        try:
+            with open(workflow_path, 'r') as file:
+                workflow = yaml.safe_load(file)
+        except Exception as e:
+            logger.error(f"Failed to load workflow {workflow_path}: {str(e)}")
+            assert False, f"Failed to load workflow: {str(e)}"
+    
+        # 2. Find complex actions in the workflow
+        complex_actions = []
+        for i, action in enumerate(workflow['ACTIONS']):
+            if 'COMPLEX' in action:
+                complex_actions.append((i, action['COMPLEX']))
+    
+        # Use assertion instead of if-return
+        assert len(complex_actions) > 0, f"No complex actions found in workflow {workflow_path}"
+    
+        logger.info(f"Found {len(complex_actions)} complex actions in workflow {workflow_path}")
+    
+        # 3. Expand each complex action
+        expanded_workflow = {'ACTIONS': []}
+        for i, action in enumerate(workflow['ACTIONS']):
+            if 'COMPLEX' in action:
+                # This is a complex action, expand it
+                complex_data = action['COMPLEX']
+                action_name = complex_data.get('action')
+    
+                # Load the complex action definition
+                complex_action_path = get_test_file_path(f"sample_complex_actions/{action_name}.yml")
+                try:
+>                   with open(complex_action_path, 'r') as file:
+E                   FileNotFoundError: [Errno 2] No such file or directory: '/Users/jvroig/Dev/OWLBEAR/tests/sample_complex_actions/test_polished_output.yml'
+
+action     = {'COMPLEX': {'action': 'test_polished_output', 'data': {'and_another': 'The plan should be actionable, clear, and demo... breach based on the strategic thinking partner's suggestions."}, 'expert': 'CEO', 'output': 'polished_response_plan'}}
+action_name = 'test_polished_output'
+complex_action_path = '/Users/jvroig/Dev/OWLBEAR/tests/sample_complex_actions/test_polished_output.yml'
+complex_actions = [(1, {'action': 'test_polished_output', 'data': {'and_another': 'The plan should be actionable, clear, and demonstrate...breach based on the strategic thinking partner's suggestions."}, 'expert': 'CEO', 'output': 'polished_response_plan'})]
+complex_data = {'action': 'test_polished_output', 'data': {'and_another': 'The plan should be actionable, clear, and demonstrate our ...a breach based on the strategic thinking partner's suggestions."}, 'expert': 'CEO', 'output': 'polished_response_plan'}
+expanded_workflow = {'ACTIONS': [{'PROMPT': {'expert': 'Strategic Thinking Partner', 'inputs': ['STR_intro_prompt'], 'output': 'strat_response_01'}}]}
+file       = <_io.TextIOWrapper name='/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml' mode='r' encoding='UTF-8'>
+i          = 1
+workflow   = {'ACTIONS': [{'PROMPT': {'expert': 'Strategic Thinking Partner', 'inputs': ['STR_intro_prompt'], 'output': 'strat_resp...ecide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan.'}}
+workflow_path = '/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml'
+
+tests/test_scripts/test_complex_actions.py:101: FileNotFoundError
+
+During handling of the above exception, another exception occurred:
+
+    def test_complex_action_in_workflow():
+        """Test how a complex action would be expanded within a workflow."""
+    
+        # 1. Load a sample workflow
+        workflow_path = get_test_file_path("sample_workflows/sequences/test_complex.yml")
+        try:
+            with open(workflow_path, 'r') as file:
+                workflow = yaml.safe_load(file)
+        except Exception as e:
+            logger.error(f"Failed to load workflow {workflow_path}: {str(e)}")
+            assert False, f"Failed to load workflow: {str(e)}"
+    
+        # 2. Find complex actions in the workflow
+        complex_actions = []
+        for i, action in enumerate(workflow['ACTIONS']):
+            if 'COMPLEX' in action:
+                complex_actions.append((i, action['COMPLEX']))
+    
+        # Use assertion instead of if-return
+        assert len(complex_actions) > 0, f"No complex actions found in workflow {workflow_path}"
+    
+        logger.info(f"Found {len(complex_actions)} complex actions in workflow {workflow_path}")
+    
+        # 3. Expand each complex action
+        expanded_workflow = {'ACTIONS': []}
+        for i, action in enumerate(workflow['ACTIONS']):
+            if 'COMPLEX' in action:
+                # This is a complex action, expand it
+                complex_data = action['COMPLEX']
+                action_name = complex_data.get('action')
+    
+                # Load the complex action definition
+                complex_action_path = get_test_file_path(f"sample_complex_actions/{action_name}.yml")
+                try:
+                    with open(complex_action_path, 'r') as file:
+                        complex_def = yaml.safe_load(file)
+                except Exception as e:
+                    logger.error(f"Failed to load complex action '{action_name}': {str(e)}")
+>                   assert False, f"Failed to load complex action '{action_name}': {str(e)}"
+E                   AssertionError: Failed to load complex action 'test_polished_output': [Errno 2] No such file or directory: '/Users/jvroig/Dev/OWLBEAR/tests/sample_complex_actions/test_polished_output.yml'
+E                   assert False
+
+action     = {'COMPLEX': {'action': 'test_polished_output', 'data': {'and_another': 'The plan should be actionable, clear, and demo... breach based on the strategic thinking partner's suggestions."}, 'expert': 'CEO', 'output': 'polished_response_plan'}}
+action_name = 'test_polished_output'
+complex_action_path = '/Users/jvroig/Dev/OWLBEAR/tests/sample_complex_actions/test_polished_output.yml'
+complex_actions = [(1, {'action': 'test_polished_output', 'data': {'and_another': 'The plan should be actionable, clear, and demonstrate...breach based on the strategic thinking partner's suggestions."}, 'expert': 'CEO', 'output': 'polished_response_plan'})]
+complex_data = {'action': 'test_polished_output', 'data': {'and_another': 'The plan should be actionable, clear, and demonstrate our ...a breach based on the strategic thinking partner's suggestions."}, 'expert': 'CEO', 'output': 'polished_response_plan'}
+expanded_workflow = {'ACTIONS': [{'PROMPT': {'expert': 'Strategic Thinking Partner', 'inputs': ['STR_intro_prompt'], 'output': 'strat_response_01'}}]}
+file       = <_io.TextIOWrapper name='/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml' mode='r' encoding='UTF-8'>
+i          = 1
+workflow   = {'ACTIONS': [{'PROMPT': {'expert': 'Strategic Thinking Partner', 'inputs': ['STR_intro_prompt'], 'output': 'strat_resp...ecide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan.'}}
+workflow_path = '/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml'
+
+tests/test_scripts/test_complex_actions.py:105: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2025-05-12 12:35:23,553 - test-complex-actions - INFO - Found 1 complex actions in workflow /Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml
+2025-05-12 12:35:23,553 - test-complex-actions - ERROR - Failed to load complex action 'test_polished_output': [Errno 2] No such file or directory: '/Users/jvroig/Dev/OWLBEAR/tests/sample_complex_actions/test_polished_output.yml'
+------------------------------ Captured log call -------------------------------
+INFO     test-complex-actions:test_complex_actions.py:88 Found 1 complex actions in workflow /Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml
+ERROR    test-complex-actions:test_complex_actions.py:104 Failed to load complex action 'test_polished_output': [Errno 2] No such file or directory: '/Users/jvroig/Dev/OWLBEAR/tests/sample_complex_actions/test_polished_output.yml'
+_______________ TestOwlbearEngine.test_complex_action_expansion ________________
+
+self = <test_owlbear_engine.TestOwlbearEngine testMethod=test_complex_action_expansion>
+
+    def test_complex_action_expansion(self):
+        """Test expansion of complex actions in the workflow"""
+        # Create a workflow engine instance with a test workflow
+        workflow_path = get_test_file_path("sample_workflows/sequences/test_complex.yml")
+    
+        # Just as a debug check, ensure file exists
+        self.assertTrue(os.path.exists(workflow_path), f"Test workflow file not found: {workflow_path}")
+    
+        # Print workflow content for debugging
+        with open(workflow_path, 'r') as f:
+            workflow_content = f.read()
+            # Verify COMPLEX is actually in the file
+            self.assertIn("COMPLEX:", workflow_content, "COMPLEX action not found in workflow file")
+    
+        # Create a new version for testing expansion directly
+        with open(workflow_path, 'r') as f:
+            original_workflow = yaml.safe_load(f)
+    
+        # Verify the original workflow has COMPLEX actions
+        complex_actions_original = sum(1 for action in original_workflow['ACTIONS'] if 'COMPLEX' in action)
+        self.assertGreater(complex_actions_original, 0, "No COMPLEX actions found in original workflow")
+    
+        # Now use the engine to load and expand
+        engine = WorkflowEngine(workflow_path)
+        result = engine.load_workflow()
+        self.assertTrue(result, "Failed to load workflow")
+    
+        # ACTIONS should be expanded by now since expansion happens in load_workflow()
+        # Verify that no COMPLEX actions remain in the loaded workflow
+        remaining_complex = sum(1 for action in engine.workflow['ACTIONS'] if 'COMPLEX' in action)
+>       self.assertEqual(remaining_complex, 0, "Complex actions were not automatically expanded during loading")
+E       AssertionError: 1 != 0 : Complex actions were not automatically expanded during loading
+
+complex_actions_original = 1
+engine     = <owlbear.WorkflowEngine object at 0x1059820a0>
+f          = <_io.TextIOWrapper name='/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml' mode='r' encoding='UTF-8'>
+original_workflow = {'ACTIONS': [{'PROMPT': {'expert': 'Strategic Thinking Partner', 'inputs': ['STR_intro_prompt'], 'output': 'strat_resp...ecide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan.'}}
+remaining_complex = 1
+result     = True
+self       = <test_owlbear_engine.TestOwlbearEngine testMethod=test_complex_action_expansion>
+workflow_content = 'STRINGS:\n  STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed ...ethical standpoint. Do you see any ethical issues or recommendations for improvement?"\n      output: ethical_review\n'
+workflow_path = '/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml'
+
+tests/test_scripts/test_owlbear_engine.py:80: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2025-05-12 12:35:23,608 - workflow-engine - INFO - Created output directory: outputs/test_complex_2025-05-12-12-35
+2025-05-12 12:35:23,608 - workflow-engine - INFO - Created debug log file: outputs/test_complex_2025-05-12-12-35/workflow_execution.log
+2025-05-12 12:35:23,610 - workflow-engine - INFO - Expanding complex action: test_polished_output
+2025-05-12 12:35:23,610 - workflow-engine.complex - ERROR - Complex action 'test_polished_output' not found in /Users/jvroig/Dev/OWLBEAR/actions/complex
+2025-05-12 12:35:23,610 - workflow-engine - ERROR - Failed to load complex action 'test_polished_output'
+2025-05-12 12:35:23,610 - workflow-engine - INFO - Workflow now has 3 actions after expansion
+2025-05-12 12:35:23,610 - workflow-engine - INFO - Found 3 required strings in workflow: STR_intro_prompt, STR_delimiter, STR_USER_INPUT
+2025-05-12 12:35:23,610 - workflow-engine - INFO - Loaded workflow with 3 actions
+------------------------------ Captured log call -------------------------------
+INFO     workflow-engine:owlbear.py:85 Created output directory: outputs/test_complex_2025-05-12-12-35
+INFO     workflow-engine:owlbear.py:92 Created debug log file: outputs/test_complex_2025-05-12-12-35/workflow_execution.log
+INFO     workflow-engine:owlbear.py:223 Expanding complex action: test_polished_output
+ERROR    workflow-engine.complex:complex.py:40 Complex action 'test_polished_output' not found in /Users/jvroig/Dev/OWLBEAR/actions/complex
+ERROR    workflow-engine:owlbear.py:228 Failed to load complex action 'test_polished_output'
+INFO     workflow-engine:owlbear.py:251 Workflow now has 3 actions after expansion
+INFO     workflow-engine:owlbear.py:280 Found 3 required strings in workflow: STR_intro_prompt, STR_delimiter, STR_USER_INPUT
+INFO     workflow-engine:owlbear.py:202 Loaded workflow with 3 actions
+__________________ TestOwlbearEngine.test_workflow_execution ___________________
+
+self = <test_owlbear_engine.TestOwlbearEngine testMethod=test_workflow_execution>
+mock_call_agent = <MagicMock name='call_agent' id='4390027952'>
+
+    @patch('owlbear.call_agent')
+    def test_workflow_execution(self, mock_call_agent):
+        """Test workflow execution with mocked expert calls"""
+        # Setup a dynamic mock that returns different responses based on the context
+        def mock_call_agent_func(expert, prompt):
+            # For PROMPT actions, return a simple response
+            default_response = {
+                'history': [
+                    {'role': 'user', 'content': prompt},
+                    {'role': 'assistant', 'content': 'Test response for prompt: ' + prompt[:30] + '...'}
+                ],
+                'final_answer': 'Test response for prompt: ' + prompt[:30] + '...'
+            }
+    
+            # For DECIDE actions, return a structured response with a decision
+            if 'TRUE' in prompt or 'true' in prompt:
+                decide_response = {
+                    'history': [
+                        {'role': 'user', 'content': prompt},
+                        {'role': 'assistant', 'content': '{"explanation": "This is a test explanation", "decision": true}'}
+                    ],
+                    'final_answer': '{"explanation": "This is a test explanation", "decision": true}'
+                }
+                return decide_response
+    
+            return default_response
+    
+        # Use the dynamic mock
+        mock_call_agent.side_effect = mock_call_agent_func
+    
+        # Create a workflow engine instance with a simplified test workflow
+        workflow_path = get_test_file_path("sample_workflows/sequences/test_complex.yml")
+        engine = WorkflowEngine(workflow_path, skip_validation=True)
+    
+        # Run the workflow
+        result = engine.run()
+    
+        # Verify that the workflow ran successfully
+>       self.assertTrue(result, "Workflow execution failed")
+E       AssertionError: False is not true : Workflow execution failed
+
+engine     = <owlbear.WorkflowEngine object at 0x105aa83d0>
+mock_call_agent = <MagicMock name='call_agent' id='4390027952'>
+mock_call_agent_func = <function TestOwlbearEngine.test_workflow_execution.<locals>.mock_call_agent_func at 0x105aa4820>
+result     = False
+self       = <test_owlbear_engine.TestOwlbearEngine testMethod=test_workflow_execution>
+workflow_path = '/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml'
+
+tests/test_scripts/test_owlbear_engine.py:124: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2025-05-12 12:35:23,631 - workflow-engine - INFO - Created output directory: outputs/test_complex_2025-05-12-12-35
+2025-05-12 12:35:23,631 - workflow-engine - INFO - Created debug log file: outputs/test_complex_2025-05-12-12-35/workflow_execution.log
+2025-05-12 12:35:23,633 - workflow-engine - INFO - Expanding complex action: test_polished_output
+2025-05-12 12:35:23,633 - workflow-engine.complex - ERROR - Complex action 'test_polished_output' not found in /Users/jvroig/Dev/OWLBEAR/actions/complex
+2025-05-12 12:35:23,633 - workflow-engine - ERROR - Failed to load complex action 'test_polished_output'
+2025-05-12 12:35:23,633 - workflow-engine - INFO - Workflow now has 3 actions after expansion
+2025-05-12 12:35:23,633 - workflow-engine - INFO - Found 3 required strings in workflow: STR_intro_prompt, STR_delimiter, STR_USER_INPUT
+2025-05-12 12:35:23,633 - workflow-engine - INFO - Loaded workflow with 3 actions
+2025-05-12 12:35:23,633 - workflow-engine.events - INFO - Workflow started: test_complex
+2025-05-12 12:35:23,634 - workflow-engine - INFO - Executing step 1/3
+2025-05-12 12:35:23,634 - workflow-engine.events - INFO - Step 0 started: PROMPT
+2025-05-12 12:35:23,634 - workflow-engine.events - INFO - Expert started: Strategic Thinking Partner
+2025-05-12 12:35:23,634 - workflow-engine.events - INFO - Expert ended: Strategic Thinking Partner
+2025-05-12 12:35:23,635 - workflow-engine - INFO - Saved output to outputs/test_complex_2025-05-12-12-35/strat_response_01.yaml
+2025-05-12 12:35:23,635 - workflow-engine - INFO - Saved output to outputs/test_complex_2025-05-12-12-35/strat_response_01_0001.yaml
+2025-05-12 12:35:23,635 - workflow-engine.prompt - INFO - Step 1: PROMPT action completed successfully
+2025-05-12 12:35:23,635 - workflow-engine.events - INFO - Step 0 ended: PROMPT (success: True)
+2025-05-12 12:35:23,636 - workflow-engine - INFO - Executing step 2/3
+2025-05-12 12:35:23,636 - workflow-engine.events - INFO - Step 1 started: COMPLEX
+2025-05-12 12:35:23,636 - workflow-engine - ERROR - Unknown action type: COMPLEX at step 2
+------------------------------ Captured log call -------------------------------
+INFO     workflow-engine:owlbear.py:85 Created output directory: outputs/test_complex_2025-05-12-12-35
+INFO     workflow-engine:owlbear.py:92 Created debug log file: outputs/test_complex_2025-05-12-12-35/workflow_execution.log
+INFO     workflow-engine:owlbear.py:223 Expanding complex action: test_polished_output
+ERROR    workflow-engine.complex:complex.py:40 Complex action 'test_polished_output' not found in /Users/jvroig/Dev/OWLBEAR/actions/complex
+ERROR    workflow-engine:owlbear.py:228 Failed to load complex action 'test_polished_output'
+INFO     workflow-engine:owlbear.py:251 Workflow now has 3 actions after expansion
+INFO     workflow-engine:owlbear.py:280 Found 3 required strings in workflow: STR_intro_prompt, STR_delimiter, STR_USER_INPUT
+INFO     workflow-engine:owlbear.py:202 Loaded workflow with 3 actions
+INFO     workflow-engine.events:event_emitter.py:130 Workflow started: test_complex
+INFO     workflow-engine:owlbear.py:604 Executing step 1/3
+INFO     workflow-engine.events:event_emitter.py:136 Step 0 started: PROMPT
+INFO     workflow-engine.events:event_emitter.py:142 Expert started: Strategic Thinking Partner
+INFO     workflow-engine.events:event_emitter.py:145 Expert ended: Strategic Thinking Partner
+INFO     workflow-engine:owlbear.py:500 Saved output to outputs/test_complex_2025-05-12-12-35/strat_response_01.yaml
+INFO     workflow-engine:owlbear.py:500 Saved output to outputs/test_complex_2025-05-12-12-35/strat_response_01_0001.yaml
+INFO     workflow-engine.prompt:prompt.py:79 Step 1: PROMPT action completed successfully
+INFO     workflow-engine.events:event_emitter.py:139 Step 0 ended: PROMPT (success: True)
+INFO     workflow-engine:owlbear.py:604 Executing step 2/3
+INFO     workflow-engine.events:event_emitter.py:136 Step 1 started: COMPLEX
+ERROR    workflow-engine:owlbear.py:692 Unknown action type: COMPLEX at step 2
+______________________ test_engine_expand_complex_actions ______________________
+
+test_files_path = <function test_files_path.<locals>._get_path at 0x105aa49d0>
+
+    def test_engine_expand_complex_actions(test_files_path):
+        """Test that the workflow engine expands complex actions."""
+        # Get the path to a sample workflow with complex actions
+        workflow_path = test_files_path("sample_workflows/sequences/test_complex.yml")
+    
+        # Create an engine and load the workflow
+        engine = WorkflowEngine(workflow_path)
+        result = engine.load_workflow()
+        assert result is True
+    
+        # Test that complex actions were expanded
+        complex_actions = [action for action in engine.workflow['ACTIONS'] if 'COMPLEX' in action]
+>       assert len(complex_actions) == 0, "All complex actions should be expanded"
+E       AssertionError: All complex actions should be expanded
+E       assert 1 == 0
+E        +  where 1 = len([{'COMPLEX': {'action': 'test_polished_output', 'data': {'and_another': 'The plan should be actionable, clear, and demonstrate our commitment to customer privacy.', 'another_data': 'Consider legal, ethical, and public relations implications of your response.', 'instruction': "Create a comprehensive response plan to the data breach based on the strategic thinking partner's suggestions."}, 'expert': 'CEO', 'output': 'polished_response_plan'}}])
+
+complex_actions = [{'COMPLEX': {'action': 'test_polished_output', 'data': {'and_another': 'The plan should be actionable, clear, and dem...breach based on the strategic thinking partner's suggestions."}, 'expert': 'CEO', 'output': 'polished_response_plan'}}]
+engine     = <owlbear.WorkflowEngine object at 0x105a25af0>
+result     = True
+test_files_path = <function test_files_path.<locals>._get_path at 0x105aa49d0>
+workflow_path = '/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml'
+
+tests/unit/test_owlbear_engine.py:71: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2025-05-12 12:35:23,717 - workflow-engine - INFO - Created output directory: outputs/test_complex_2025-05-12-12-35
+2025-05-12 12:35:23,717 - workflow-engine - INFO - Created debug log file: outputs/test_complex_2025-05-12-12-35/workflow_execution.log
+2025-05-12 12:35:23,719 - workflow-engine - INFO - Expanding complex action: test_polished_output
+2025-05-12 12:35:23,719 - workflow-engine.complex - ERROR - Complex action 'test_polished_output' not found in /Users/jvroig/Dev/OWLBEAR/actions/complex
+2025-05-12 12:35:23,719 - workflow-engine - ERROR - Failed to load complex action 'test_polished_output'
+2025-05-12 12:35:23,719 - workflow-engine - INFO - Workflow now has 3 actions after expansion
+2025-05-12 12:35:23,719 - workflow-engine - INFO - Found 3 required strings in workflow: STR_intro_prompt, STR_delimiter, STR_USER_INPUT
+2025-05-12 12:35:23,719 - workflow-engine - INFO - Loaded workflow with 3 actions
+------------------------------ Captured log call -------------------------------
+INFO     workflow-engine:owlbear.py:85 Created output directory: outputs/test_complex_2025-05-12-12-35
+INFO     workflow-engine:owlbear.py:92 Created debug log file: outputs/test_complex_2025-05-12-12-35/workflow_execution.log
+INFO     workflow-engine:owlbear.py:223 Expanding complex action: test_polished_output
+ERROR    workflow-engine.complex:complex.py:40 Complex action 'test_polished_output' not found in /Users/jvroig/Dev/OWLBEAR/actions/complex
+ERROR    workflow-engine:owlbear.py:228 Failed to load complex action 'test_polished_output'
+INFO     workflow-engine:owlbear.py:251 Workflow now has 3 actions after expansion
+INFO     workflow-engine:owlbear.py:280 Found 3 required strings in workflow: STR_intro_prompt, STR_delimiter, STR_USER_INPUT
+INFO     workflow-engine:owlbear.py:202 Loaded workflow with 3 actions
+________________________ test_engine_validate_workflow _________________________
+
+test_files_path = <function test_files_path.<locals>._get_path at 0x105aa4700>
+temp_output_dir = '/Users/jvroig/Dev/OWLBEAR/tests/outputs/pytest_temp'
+
+    def test_engine_validate_workflow(test_files_path, temp_output_dir):
+        """Test that the workflow engine validates a workflow."""
+        # Get the path to a sample workflow
+        workflow_path = test_files_path("sample_workflows/sequences/test_complex.yml")
+    
+        # Create an engine
+        engine = WorkflowEngine(workflow_path)
+    
+        # Validate the workflow
+        success, output_path = engine.validate_workflow()
+    
+        # Test the result
+>       assert success is True
+E       assert False is True
+
+engine     = <owlbear.WorkflowEngine object at 0x105a35580>
+output_path = ''
+success    = False
+temp_output_dir = '/Users/jvroig/Dev/OWLBEAR/tests/outputs/pytest_temp'
+test_files_path = <function test_files_path.<locals>._get_path at 0x105aa4700>
+workflow_path = '/Users/jvroig/Dev/OWLBEAR/tests/sample_workflows/sequences/test_complex.yml'
+
+tests/unit/test_owlbear_engine.py:85: AssertionError
+----------------------------- Captured stderr call -----------------------------
+2025-05-12 12:35:23,722 - workflow-engine - INFO - Created output directory: outputs/test_complex_2025-05-12-12-35
+2025-05-12 12:35:23,722 - workflow-engine - INFO - Created debug log file: outputs/test_complex_2025-05-12-12-35/workflow_execution.log
+2025-05-12 12:35:23,722 - workflow-engine - INFO - Validating workflow before execution
+2025-05-12 12:35:23,722 - workflow-validator - INFO - Output directory: outputs/test_complex_2025-05-12-12-35
+2025-05-12 12:35:23,724 - workflow-validator - INFO - Loaded workflow with 3 actions
+2025-05-12 12:35:23,724 - workflow-engine.complex - ERROR - Complex action 'test_polished_output' not found in /Users/jvroig/Dev/OWLBEAR/actions/complex
+2025-05-12 12:35:23,724 - workflow-validator - ERROR - Validation error: Action 2 (COMPLEX) references unknown complex action 'test_polished_output'
+2025-05-12 12:35:23,724 - workflow-validator - ERROR - Validation failed with 1 errors:
+2025-05-12 12:35:23,724 - workflow-validator - ERROR -   1. Action 2 (COMPLEX) references unknown complex action 'test_polished_output'
+2025-05-12 12:35:23,724 - workflow-engine - ERROR - Workflow validation failed! See validator output for details.
+------------------------------ Captured log call -------------------------------
+INFO     workflow-engine:owlbear.py:85 Created output directory: outputs/test_complex_2025-05-12-12-35
+INFO     workflow-engine:owlbear.py:92 Created debug log file: outputs/test_complex_2025-05-12-12-35/workflow_execution.log
+INFO     workflow-engine:owlbear.py:519 Validating workflow before execution
+INFO     workflow-validator:workflow_validator.py:294 Output directory: outputs/test_complex_2025-05-12-12-35
+INFO     workflow-validator:workflow_validator.py:80 Loaded workflow with 3 actions
+ERROR    workflow-engine.complex:complex.py:40 Complex action 'test_polished_output' not found in /Users/jvroig/Dev/OWLBEAR/actions/complex
+ERROR    workflow-validator:workflow_validator.py:44 Validation error: Action 2 (COMPLEX) references unknown complex action 'test_polished_output'
+ERROR    workflow-validator:workflow_validator.py:308 Validation failed with 1 errors:
+ERROR    workflow-validator:workflow_validator.py:310   1. Action 2 (COMPLEX) references unknown complex action 'test_polished_output'
+ERROR    workflow-engine:owlbear.py:538 Workflow validation failed! See validator output for details.
 =============================== warnings summary ===============================
 venv/lib/python3.9/site-packages/urllib3/__init__.py:35
   /Users/jvroig/Dev/OWLBEAR/venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
     warnings.warn(
 
-tests/test_scripts/test_complex_action_loading.py::test_complex_action_loading
-  /Users/jvroig/Dev/OWLBEAR/venv/lib/python3.9/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_scripts/test_complex_action_loading.py::test_complex_action_loading returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?
-    warnings.warn(
-
-tests/test_scripts/test_complex_actions.py::test_complex_action_expansion
-  /Users/jvroig/Dev/OWLBEAR/venv/lib/python3.9/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_scripts/test_complex_actions.py::test_complex_action_expansion returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?
-    warnings.warn(
-
-tests/test_scripts/test_complex_actions.py::test_complex_action_in_workflow
-  /Users/jvroig/Dev/OWLBEAR/venv/lib/python3.9/site-packages/_pytest/python.py:163: PytestReturnNotNoneWarning: Expected None, but tests/test_scripts/test_complex_actions.py::test_complex_action_in_workflow returned True, which will be an error in a future version of pytest.  Did you mean to use `assert` instead of `return`?
-    warnings.warn(
-
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================== 56 passed, 4 warnings in 0.78s ========================
+=========================== short test summary info ============================
+FAILED tests/test_scripts/test_complex_actions.py::test_complex_action_in_workflow
+FAILED tests/test_scripts/test_owlbear_engine.py::TestOwlbearEngine::test_complex_action_expansion
+FAILED tests/test_scripts/test_owlbear_engine.py::TestOwlbearEngine::test_workflow_execution
+FAILED tests/unit/test_owlbear_engine.py::test_engine_expand_complex_actions
+FAILED tests/unit/test_owlbear_engine.py::test_engine_validate_workflow - ass...
+=================== 5 failed, 51 passed, 1 warning in 0.57s ====================

@@ -24,23 +24,21 @@ def test_complex_action_loading():
         with open(action_path, 'r') as file:
             complex_def = yaml.safe_load(file)
             
-        if complex_def:
-            logger.info(f"Successfully loaded complex action from: {action_path}")
-            logger.info(f"Complex action YAML structure:")
-            print(yaml.dump(complex_def, default_flow_style=False))
-            return True
-        else:
-            logger.error(f"Failed to load complex action: Empty or invalid YAML")
-            return False
+        # Use assertions instead of returning True/False
+        assert complex_def is not None, "Failed to load complex action: Empty or invalid YAML"
+        
+        logger.info(f"Successfully loaded complex action from: {action_path}")
+        logger.info(f"Complex action YAML structure:")
+        print(yaml.dump(complex_def, default_flow_style=False))
     except Exception as e:
         logger.error(f"Failed to load complex action: {str(e)}")
-        return False
+        assert False, f"Failed to load complex action: {str(e)}"
 
 if __name__ == "__main__":
-    if test_complex_action_loading():
+    try:
+        test_complex_action_loading()
         print("\nTest successful!")
         exit(0)
-    else:
-        print("\nTest failed!")
+    except AssertionError as e:
+        print(f"\nTest failed: {str(e)}")
         exit(1)
-

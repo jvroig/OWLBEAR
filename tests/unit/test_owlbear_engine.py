@@ -60,9 +60,10 @@ def test_engine_expand_complex_actions(test_files_path):
     """Test that the workflow engine expands complex actions."""
     # Get the path to a sample workflow with complex actions
     workflow_path = test_files_path("sample_workflows/sequences/test_complex.yml")
+    complex_actions_path = test_files_path("sample_complex_actions")
     
     # Create an engine and load the workflow
-    engine = WorkflowEngine(workflow_path)
+    engine = WorkflowEngine(workflow_path, complex_actions_path=complex_actions_path)
     result = engine.load_workflow()
     assert result is True
     
@@ -74,9 +75,10 @@ def test_engine_validate_workflow(test_files_path, temp_output_dir):
     """Test that the workflow engine validates a workflow."""
     # Get the path to a sample workflow
     workflow_path = test_files_path("sample_workflows/sequences/test_complex.yml")
+    complex_actions_path = test_files_path("sample_complex_actions")
     
     # Create an engine
-    engine = WorkflowEngine(workflow_path)
+    engine = WorkflowEngine(workflow_path, complex_actions_path=complex_actions_path)
     
     # Validate the workflow
     success, output_path = engine.validate_workflow()
