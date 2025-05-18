@@ -45,6 +45,22 @@ def execute_prompt_action(action: Dict[str, Any], context: Dict[str, Any]) -> bo
         
         # Resolve and concatenate all inputs
         resolved_inputs = [resolve_input(input_item) for input_item in inputs]
+        
+        # NEW CODE: Automatically check for feedback if append-history is enabled
+        append_history = action.get('append-history', False)
+        step_id = action.get('id')
+        
+        # Access the feedback cache from the engine
+        feedback_cache = context.get('feedback_cache', {})
+        
+        # If append-history is enabled and there's feedback for this step, add it
+        if append_history and step_id and step_id in feedback_cache:
+            feedback = feedback_cache.get(step_id, '')
+            if feedback:
+                logger.info(f"Step {step_number}: Including feedback for step ID '{step_id}'")
+                resolved_inputs.append(f"\n\n===== FEEDBACK =====\n{feedback}\n")
+        
+        # Concatenate all inputs into full prompt
         full_prompt = "\n".join(resolved_inputs)
         
         # Call the expert - now returning dict with history and final_answer

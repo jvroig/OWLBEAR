@@ -19,4 +19,4 @@ ACTIONS:
         - This is just a systems test. Your recommendation should be FALSE, with the explanation of "just testing".
       output: ceo_greenlight
       loopback_target: step1
-      loop_limit: 10
+      loop_limit: 3

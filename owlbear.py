@@ -323,6 +323,8 @@ class WorkflowEngine:
         If it's a literal string containing {{var}} patterns, substitute variables.
         Otherwise, return the input unchanged.
         """
+        self.log_debug(f"RESOLVE INPUT CALLED WITH: {input_item}")
+
         # First check if this is a string variable reference
         if input_item in self.string_vars:
             return self.string_vars[input_item]
@@ -591,6 +593,9 @@ class WorkflowEngine:
         
         exec_count = {}
         
+        # NEW: Dictionary to track DECIDE loop counts across loop iterations
+        decide_loop_counts = {}
+        
         while self.current_step < len(actions):
             action = actions[self.current_step]
             # Track how many times each step is executed
@@ -621,7 +626,8 @@ class WorkflowEngine:
                 'resolve_input': self.resolve_input,
                 'save_output': self.save_output,
                 'call_agent': call_agent,
-                'output_vars': self.output_vars
+                'output_vars': self.output_vars,
+                'feedback_cache': self.feedback_cache
             }
             
             if action_type == 'PROMPT':
@@ -635,58 +641,70 @@ class WorkflowEngine:
                 self.current_step += 1
                 
             elif action_type == 'DECIDE':
-                loop_limit = action_details.get('loop_limit', 10)
-                loop_count = 0
+                # Get the unique identifier for this specific DECIDE action and its loopback target
                 loopback_target = action_details.get('loopback_target')
+                decide_id = f"{self.current_step}_{loopback_target}"
                 
+                # Initialize loop counter for this DECIDE action if not already tracking
+                if decide_id not in decide_loop_counts:
+                    decide_loop_counts[decide_id] = 0
+                
+                # Get the loop limit
+                loop_limit = action_details.get('loop_limit', 10)
+                
+                # Check if we've already hit the loop limit
+                if decide_loop_counts[decide_id] >= loop_limit:
+                    self.log_debug(f"Loop limit reached for DECIDE action at step {self.current_step + 1} (attempt {decide_loop_counts[decide_id]}/{loop_limit})")
+                    logger.error(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
+                    return False
+                
+                # Execute the DECIDE action
                 self.log_debug(f"Starting DECIDE action (step {self.current_step+1}) with loopback_target={loopback_target}")
+                self.log_debug(f"DECIDE evaluation attempt #{decide_loop_counts[decide_id] + 1}/{loop_limit}")
                 
-                while loop_count < loop_limit:
-                    self.log_debug(f"DECIDE evaluation #{loop_count+1} at step {self.current_step+1}")
-                    success, next_step = execute_decide_action(action_details, context)
-                    if not success:
-                        self.log_debug(f"DECIDE action failed at step {self.current_step+1}")
-                        return False
+                success, next_step = execute_decide_action(action_details, context)
+                if not success:
+                    self.log_debug(f"DECIDE action failed at step {self.current_step+1}")
+                    return False
+                
+                if next_step is None:
+                    # Decision was TRUE, move to next step
+                    self.log_debug(f"DECIDE result: TRUE - Moving from step {self.current_step+1} to step {self.current_step+2}")
+                    self.current_step += 1
                     
-                    if next_step is None:
-                        # Decision was TRUE, move to next step
-                        self.log_debug(f"DECIDE result: TRUE - Moving from step {self.current_step+1} to step {self.current_step+2}")
-                        self.current_step += 1
-                        break
-                    else:
-                        # Decision was FALSE, loop back using ID-based loopback
-                        loop_count += 1
+                    # Reset the loop counter for this DECIDE action when it passes
+                    decide_loop_counts[decide_id] = 0
+                else:
+                    # Decision was FALSE, loop back using ID-based loopback
+                    # Increment the loop counter
+                    decide_loop_counts[decide_id] += 1
+                    current_loop_count = decide_loop_counts[decide_id]
+                    
+                    # Handle string ID-based loopback target
+                    if next_step in action_id_map:
+                        target_step = action_id_map[next_step]
+                        self.log_debug(f"DECIDE result: FALSE - Looping back from step {self.current_step+1} to action ID '{next_step}' (step {target_step+1})")
+                        self.log_debug(f"Loop attempt {current_loop_count}/{loop_limit}")
                         
-                        # Handle string ID-based loopback target
-                        if next_step in action_id_map:
-                            target_step = action_id_map[next_step]
-                            self.log_debug(f"DECIDE result: FALSE - Looping back from step {self.current_step+1} to action ID '{next_step}' (step {target_step+1})")
-                            self.log_debug(f"Loop attempt {loop_count}/{loop_limit}")
-                            
-                            logger.info(f"Looping back to action ID '{next_step}' (step {target_step+1}) (attempt {loop_count}/{loop_limit})")
-                            if loop_count >= loop_limit:
-                                self.log_debug(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
-                                logger.error(f"Loop limit reached for DECIDE action at step {self.current_step + 1}")
-                                return False
-                            
-                            # Log detailed information about the ID-based loopback
-                            self.log_debug(f"LOOPBACK TRACE (ID-based):")
-                            from_type = self.get_step_type(self.current_step)
-                            to_type = self.get_step_type(target_step)
-                            self.log_debug(f"  From: Step {self.current_step+1} ({from_type}, 0-indexed: {self.current_step})")
-                            self.log_debug(f"  To: Step {target_step+1} ({to_type}, 0-indexed: {target_step})")
-                            self.log_debug(f"  Loopback target ID: '{next_step}'")
-                            
-                            # Reset the current step to the target step
-                            self.log_debug(f"Setting current_step from {self.current_step} to {target_step} (0-indexed) which is step {target_step+1} in workflow")
-                            logger.debug(f"Setting current_step to {target_step} (0-indexed) which is step {target_step+1} in the workflow")
-                            self.current_step = target_step
-                            break
-                        else:
-                            error_msg = f"INVALID LOOPBACK TARGET ID: '{next_step}' is not defined in the workflow"
-                            self.log_debug(error_msg)
-                            logger.error(error_msg)
-                            return False
+                        logger.info(f"Looping back to action ID '{next_step}' (step {target_step+1}) (attempt {current_loop_count}/{loop_limit})")
+                        
+                        # Log detailed information about the ID-based loopback
+                        self.log_debug(f"LOOPBACK TRACE (ID-based):")
+                        from_type = self.get_step_type(self.current_step)
+                        to_type = self.get_step_type(target_step)
+                        self.log_debug(f"  From: Step {self.current_step+1} ({from_type}, 0-indexed: {self.current_step})")
+                        self.log_debug(f"  To: Step {target_step+1} ({to_type}, 0-indexed: {target_step})")
+                        self.log_debug(f"  Loopback target ID: '{next_step}'")
+                        
+                        # Reset the current step to the target step
+                        self.log_debug(f"Setting current_step from {self.current_step} to {target_step} (0-indexed) which is step {target_step+1} in workflow")
+                        logger.debug(f"Setting current_step to {target_step} (0-indexed) which is step {target_step+1} in the workflow")
+                        self.current_step = target_step
+                    else:
+                        error_msg = f"INVALID LOOPBACK TARGET ID: '{next_step}' is not defined in the workflow"
+                        self.log_debug(error_msg)
+                        logger.error(error_msg)
+                        return False
             
             else:
                 self.log_debug(f"Unknown action type: {action_type} at step {self.current_step + 1}")
