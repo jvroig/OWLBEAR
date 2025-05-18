@@ -1,0 +1,22 @@
+STRINGS:
+  STR_intro_prompt: "Hello!"
+  STR_delimiter: "*********************************************"
+
+ACTIONS:
+  - PROMPT:
+      id: step1
+      append-history: true
+      append-history-type: LATEST
+      expert: "Strategic Thinking Partner"
+      inputs:
+        - STR_intro_prompt
+      output: strat_response_01
+  
+
+  - DECIDE:
+      expert: "CEO"
+      inputs:
+        - This is just a systems test. Your recommendation should be FALSE, with the explanation of "just testing".
+      output: ceo_greenlight
+      loopback_target: step1
+      loop_limit: 10
