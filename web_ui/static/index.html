@@ -834,20 +834,26 @@
             const { expert_id, tool_name, parameters, result } = data;
             
             // Add to trace log
-            addTraceLog(`Expert ${expert_id} called tool: ${tool_name}`, 'info');
-            
-            // If parameters provided, log them
-            if (parameters && Object.keys(parameters).length > 0) {
-                addTraceLog(`Tool parameters: ${JSON.stringify(parameters)}`, 'debug');
+            if (result === undefined || result === null) {
+                // This is a new tool call (not a result)
+                addTraceLog(`Expert ${expert_id} called tool: ${tool_name}`, 'info');
+                
+                // If parameters provided, log them
+                if (parameters && Object.keys(parameters).length > 0) {
+                    addTraceLog(`Tool parameters: ${JSON.stringify(parameters)}`, 'debug');
+                }
+                
+                // Update tools visualization - only for new tool calls, not results
+                addToolToVisualization(tool_name);
+            } else {
+                // This is a tool call result
+                addTraceLog(`Tool ${tool_name} returned result`, 'info');
+                
+                // If result provided, log it
+                if (result) {
+                    addTraceLog(`Tool result: ${result}`, 'debug');
+                }
             }
-            
-            // If result provided, log it
-            if (result) {
-                addTraceLog(`Tool result: ${result}`, 'debug');
-            }
-            
-            // Update tools visualization
-            addToolToVisualization(tool_name);
         }
         
         // Add a tool to the tools visualization
@@ -1072,13 +1078,7 @@
             // Add tools title with icon
             const toolsTitle = document.createElement('div');
             toolsTitle.className = 'tools-title';
-            
-            // Add tool icon
-            const toolIcon = document.createElement('i');
-            toolIcon.setAttribute('data-feather', 'tool');
-            toolIcon.className = 'w-4 h-4';
-            toolsTitle.appendChild(toolIcon);
-            
+                        
             // Add title text
             const titleText = document.createTextNode('TOOLS');
             toolsTitle.appendChild(titleText);
