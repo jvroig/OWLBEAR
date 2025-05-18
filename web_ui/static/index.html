@@ -136,6 +136,59 @@
             font-size: 1.25rem;
             font-weight: bold;
         }
+        
+        /* Tools box styles */
+        .tools-container {
+            flex: 0.5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 16px 16px 16px;
+            margin-top: 10px;
+        }
+        
+        .tools-box {
+            background-color: #2d3748;
+            border-radius: 8px;
+            padding: 12px;
+            width: 80%;
+            max-width: 800px;
+            text-align: center;
+            border: 2px solid #4a5568;
+        }
+        
+        .tools-title {
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: #a0aec0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .tools-title i {
+            margin-right: 6px;
+        }
+        
+        .tools-content {
+            font-size: 1rem;
+            color: #e2e8f0;
+        }
+        
+        .tool-item {
+            display: inline-flex;
+            align-items: center;
+            background-color: #4a5568;
+            border-radius: 4px;
+            padding: 2px 8px;
+            margin: 2px;
+            white-space: nowrap;
+        }
+        
+        .tool-item i {
+            margin-right: 4px;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -661,6 +714,9 @@
                 if (status === 'running') {
                     console.log(`Updating action box with description: '${description || action_type}'`);
                     updateActionBox(description || action_type);
+                    
+                    // Reset tools box for new step
+                    resetToolsBox();
                 } else if (status === 'completed') {
                     // NOTE: REMOVED, NOT NEEDED RIGHT NOW, MIGHT RECONSIDER IN FUTURE
                     // // When a step completes, clear the action box after a short delay
@@ -790,8 +846,60 @@
                 addTraceLog(`Tool result: ${result}`, 'debug');
             }
             
-            // Update visualization
-            // This would be implemented in a real visualization system
+            // Update tools visualization
+            addToolToVisualization(tool_name);
+        }
+        
+        // Add a tool to the tools visualization
+        function addToolToVisualization(toolName) {
+            // Find tools content element
+            const toolsContent = document.getElementById('tools-content');
+            if (!toolsContent) {
+                console.error("Could not find tools-content element");
+                return;
+            }
+            
+            // Clear "No tools used yet" message if present
+            if (toolsContent.textContent === 'No tools used yet') {
+                toolsContent.innerHTML = '';
+            }
+            
+            // Create tool item element
+            const toolItem = document.createElement('div');
+            toolItem.className = 'tool-item';
+            
+            // Add tool icon
+            const toolIcon = document.createElement('i');
+            toolIcon.setAttribute('data-feather', 'tool');
+            toolIcon.className = 'w-3 h-3';
+            toolItem.appendChild(toolIcon);
+            
+            // Add tool name
+            const toolText = document.createTextNode(toolName);
+            toolItem.appendChild(toolText);
+            
+            // Add tool item to tools content
+            toolsContent.appendChild(toolItem);
+            
+            // Initialize Feather Icons for the new icon
+            feather.replace();
+            
+            console.log(`Added tool '${toolName}' to visualization`);
+        }
+        
+        // Reset the tools box
+        function resetToolsBox() {
+            console.log("Resetting tools box");
+            
+            // Find tools content element
+            const toolsContent = document.getElementById('tools-content');
+            if (toolsContent) {
+                toolsContent.innerHTML = '';
+                toolsContent.textContent = 'No tools used yet';
+                console.log("Tools box reset successful");
+            } else {
+                console.error("Could not find tools-content element");
+            }
         }
         
         // Handle execution status messages
@@ -893,6 +1001,9 @@
                     actionBox.classList.remove('pulse');
                 }
             }
+            
+            // Reset tools box
+            resetToolsBox();
         }
         
         // Update the visualization with workflow information
@@ -949,9 +1060,45 @@
             // Add action box to container
             actionContainer.appendChild(actionBox);
             
+            // Create tools container
+            const toolsContainer = document.createElement('div');
+            toolsContainer.className = 'tools-container';
+            
+            // Create tools box
+            const toolsBox = document.createElement('div');
+            toolsBox.className = 'tools-box';
+            toolsBox.id = 'tools-box';
+            
+            // Add tools title with icon
+            const toolsTitle = document.createElement('div');
+            toolsTitle.className = 'tools-title';
+            
+            // Add tool icon
+            const toolIcon = document.createElement('i');
+            toolIcon.setAttribute('data-feather', 'tool');
+            toolIcon.className = 'w-4 h-4';
+            toolsTitle.appendChild(toolIcon);
+            
+            // Add title text
+            const titleText = document.createTextNode('TOOLS');
+            toolsTitle.appendChild(titleText);
+            
+            toolsBox.appendChild(toolsTitle);
+            
+            // Add tools content (initially empty)
+            const toolsContent = document.createElement('div');
+            toolsContent.className = 'tools-content';
+            toolsContent.textContent = 'No tools used yet';
+            toolsContent.id = 'tools-content';
+            toolsBox.appendChild(toolsContent);
+            
+            // Add tools box to container
+            toolsContainer.appendChild(toolsBox);
+            
             // Assemble the visualization
             vizContainer.appendChild(expertsContainer);
             vizContainer.appendChild(actionContainer);
+            vizContainer.appendChild(toolsContainer);
             visualizationEl.appendChild(vizContainer);
             
             // Log visualization elements for debugging
