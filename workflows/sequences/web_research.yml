@@ -5,6 +5,7 @@ STRINGS:
 
 ACTIONS:
   - PROMPT:
+      description: Search for tips
       expert: CTO
       inputs:
         - STR_intro_prompt
@@ -14,6 +15,7 @@ ACTIONS:
       output: websearch01
 
   - PROMPT:
+      description: Evaluate and feedback
       expert: "Communication Strategist"
       inputs:
         - STR_intro_prompt
@@ -22,6 +24,7 @@ ACTIONS:
       output: communication_feedback
   
   - PROMPT:
+      description: Advisor Feedback Creation
       expert: "Decision Making Advisor"
       inputs:
         - STR_intro_prompt
@@ -30,6 +33,7 @@ ACTIONS:
       output: decision_making_feedback
 
   - PROMPT:
+      description: Creating final response plan
       expert: "CTO"
       inputs:
         - STR_intro_prompt
