@@ -68,11 +68,11 @@ def execute_prompt_action(action: Dict[str, Any], context: Dict[str, Any]) -> bo
                 logger.info(f"Step {step_number}: output_history[{output_name}] = {output_history[output_name]}")
             
             # 1. Add previous output history based on type
-            if output_name in output_history and len(output_history[output_name]) > 1:
+            if output_name in output_history and len(output_history[output_name]) >= 1:
                 if append_history_type == 'LATEST':
                     # Only include the most recent previous output
                     try:
-                        prev_name = output_history[output_name][-2]  # Second-to-last item (latest previous)
+                        prev_name = output_history[output_name][-1] 
                         prev_path = os.path.join(output_dir, f"{prev_name}.yaml")
                         logger.info(f"Step {step_number}: Looking for previous output at {prev_path}")
                         
