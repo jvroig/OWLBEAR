@@ -202,23 +202,14 @@ class EventConnector:
         """
         await asyncio.sleep(delay)
         
-        # Remove from mappings and current executions
-        workflow_id = None
-        for wf_id, exec_id in list(self.execution_mappings.items()):
-            if exec_id == execution_id:
-                workflow_id = wf_id
-                break
-        
-        if workflow_id:
-            del self.execution_mappings[workflow_id]
-        
-        if execution_id in self.current_executions:
-            del self.current_executions[execution_id]
-        
-        # Clean up event history
+        # Only clean up event history, NOT the mappings or current executions
+        # We need to keep these for subsequent tool calls
         await self.event_service.clean_up_execution(execution_id)
         
-        logger.info(f"Cleaned up execution: {execution_id}")
+        logger.info(f"Cleaned up event history for execution: {execution_id}")
+        
+        # Note: Deliberately NOT removing execution from mappings or current_executions
+        # to ensure tool calls can still find their execution context
     
     async def handle_step_start(self, step_index: int, action_type: str, expert_id: str, **kwargs):
         """
@@ -429,19 +420,28 @@ class EventConnector:
             parameters (Dict[str, Any]): Parameters passed to the tool
             **kwargs: Additional data
         """
-        # Find the current execution with this expert
+        # First attempt: Find the current execution with this expert
         execution_id = None
         for exec_id, exec_data in self.current_executions.items():
             if expert_id in exec_data.get("experts", {}):
-                execution_id = exec_id
-                break
+                # Double check this is a running execution
+                if exec_data["status"] == "running":
+                    execution_id = exec_id
+                    logger.info(f"Found running execution {execution_id} for expert {expert_id}")
+                    break
         
+        # Second attempt: Find any running execution if expert not found
         if not execution_id:
-            # Fall back to any running execution
             for exec_id, exec_data in self.current_executions.items():
                 if exec_data["status"] == "running":
                     execution_id = exec_id
+                    logger.info(f"Using running execution {execution_id} for tool call by expert {expert_id}")
                     break
+        
+        # If still no execution, check if there's only one execution (even if not running)
+        if not execution_id and len(self.current_executions) == 1:
+            execution_id = list(self.current_executions.keys())[0]
+            logger.info(f"Falling back to only available execution {execution_id} for tool call by expert {expert_id}")
         
         if not execution_id:
             logger.warning(f"No execution found for tool call by expert: {expert_id}")
@@ -489,19 +489,28 @@ class EventConnector:
             success (bool): Whether the tool call completed successfully
             **kwargs: Additional data
         """
-        # Find the current execution with this expert
+        # First attempt: Find the current execution with this expert
         execution_id = None
         for exec_id, exec_data in self.current_executions.items():
             if expert_id in exec_data.get("experts", {}):
-                execution_id = exec_id
-                break
+                # Double check this is a running execution
+                if exec_data["status"] == "running":
+                    execution_id = exec_id
+                    logger.info(f"Found running execution {execution_id} for expert {expert_id}")
+                    break
         
+        # Second attempt: Find any running execution if expert not found
         if not execution_id:
-            # Fall back to any running execution
             for exec_id, exec_data in self.current_executions.items():
                 if exec_data["status"] == "running":
                     execution_id = exec_id
+                    logger.info(f"Using running execution {execution_id} for tool call by expert {expert_id}")
                     break
+        
+        # If still no execution, check if there's only one execution (even if not running)
+        if not execution_id and len(self.current_executions) == 1:
+            execution_id = list(self.current_executions.keys())[0]
+            logger.info(f"Falling back to only available execution {execution_id} for tool call by expert {expert_id}")
         
         if not execution_id:
             logger.warning(f"No execution found for tool call by expert: {expert_id}")
