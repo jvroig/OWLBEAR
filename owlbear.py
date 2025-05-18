@@ -329,76 +329,7 @@ class WorkflowEngine:
         if input_item in self.string_vars:
             return self.string_vars[input_item]
         elif input_item in self.output_vars:
-            # Check if this is a reference to an output that has append-history flag
-            current_action = self.workflow['ACTIONS'][self.current_step] if self.workflow and 'ACTIONS' in self.workflow else None
-            
-            if current_action:
-                action_type = list(current_action.keys())[0]  # Get the action type (e.g., PROMPT, DECIDE)
-                action_config = current_action[action_type]
-                
-                # Check for append-history flag
-                append_history = action_config.get('append-history', False)
-                append_history_type = action_config.get('append-history-type', 'LATEST')
-                
-                # Handle history appending if enabled
-                if append_history and input_item in self.output_history:
-                    history = self.output_history[input_item]
-                    
-                    # Check if the current step is targeted by a DECIDE action (has feedback)
-                    step_id = action_config.get('id')
-                    has_feedback = (step_id and step_id in self.feedback_cache) or self.current_step in self.feedback_cache
-                    
-                    # Build the output with history
-                    result = ""
-                    
-                    # Include the output (final_answer only)
-                    output_var = self.output_vars[input_item]
-                    if 'final_answer' in output_var:
-                        result = output_var.get('final_answer')
-                    else:
-                        logger.warning(f"Output variable {input_item} has no final_answer field")
-                        result = ""
-                    
-                    # Then, append history based on type
-                    if append_history_type == 'ALL' and len(history) > 1:
-                        result += "\n\n===== PREVIOUS OUTPUTS =====\n"
-                        for i, hist_name in enumerate(history[:-1]):  # Skip the most recent one (already included)
-                            try:
-                                hist_path = os.path.join(self.output_dir, f"{hist_name}.yaml")
-                                with open(hist_path, 'r') as file:
-                                    hist_data = yaml.safe_load(file)
-                                    if 'final_answer' in hist_data:
-                                        hist_content = hist_data.get('final_answer', '')
-                                        result += f"\n--- Output {i+1} ---\n{hist_content}\n"
-                                    else:
-                                        logger.warning(f"Historical file {hist_path} has no final_answer field")
-                            except Exception as e:
-                                self.log_debug(f"Failed to read history file {hist_path}: {str(e)}")
-                    
-                    elif append_history_type == 'LATEST' and len(history) > 1:
-                        # Only include the most recent previous output
-                        try:
-                            prev_name = history[-2]  # Second-to-last item (latest previous)
-                            prev_path = os.path.join(self.output_dir, f"{prev_name}.yaml")
-                            with open(prev_path, 'r') as file:
-                                prev_data = yaml.safe_load(file)
-                                if 'final_answer' in prev_data:
-                                    prev_content = prev_data.get('final_answer', '')
-                                    result += f"\n\n===== YOUR PREVIOUS OUTPUT =====\n{prev_content}\n"
-                                else:
-                                    logger.warning(f"Previous output file {prev_path} has no final_answer field")
-                        except Exception as e:
-                            self.log_debug(f"Failed to read previous output file: {str(e)}")
-                    
-                    # Add feedback if available
-                    if has_feedback:
-                        feedback = self.feedback_cache.get(step_id, self.feedback_cache.get(self.current_step, ''))
-                        if feedback:
-                            result += f"\n\n===== FEEDBACK =====\n{feedback}\n"
-                    
-                    return result
-            
-            # Fall back to normal output resolution if history appending not enabled
+            # Simply return the final_answer field of the output variable
             output_var = self.output_vars[input_item]
             if 'final_answer' in output_var:
                 return output_var.get('final_answer')
@@ -627,7 +558,9 @@ class WorkflowEngine:
                 'save_output': self.save_output,
                 'call_agent': call_agent,
                 'output_vars': self.output_vars,
-                'feedback_cache': self.feedback_cache
+                'feedback_cache': self.feedback_cache,
+                'output_history': self.output_history,
+                'output_dir': self.output_dir
             }
             
             if action_type == 'PROMPT':
