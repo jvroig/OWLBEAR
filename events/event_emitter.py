@@ -19,6 +19,9 @@ class EventEmitter:
     
     def __init__(self):
         self._handlers: Dict[str, List[Callable]] = {}
+        # Create a dedicated event loop for sync-to-async calls
+        self._loop = asyncio.new_event_loop()
+        
         
     def on(self, event: str, handler: Callable) -> None:
         """
@@ -90,15 +93,23 @@ class EventEmitter:
         if event not in self._handlers:
             return
             
+        # Process each handler
         for handler in self._handlers[event]:
             try:
                 if inspect.iscoroutinefunction(handler):
-                    # Create a new event loop for the async handler
-                    loop = asyncio.new_event_loop()
-                    loop.run_until_complete(handler(*args, **kwargs))
-                    loop.close()
+                    # For async handlers, use the dedicated event loop
+                    coro = handler(*args, **kwargs)
+                    
+                    # Run the coroutine in our dedicated event loop
+                    if not self._loop.is_running():
+                        self._loop.run_until_complete(coro)
+                    else:
+                        # If the loop is already running, add a task to it
+                        # This is less likely to happen in practice
+                        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+                        future.result()  # Wait for completion
                 else:
-                    # Sync handler
+                    # Sync handler - call directly
                     handler(*args, **kwargs)
             except Exception as e:
                 logger.error(f"Error in event handler for '{event}': {str(e)}")
