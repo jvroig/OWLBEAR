@@ -4,13 +4,16 @@ STRINGS:
 
 ACTIONS:
   - PROMPT:
+      description: Drafting a response...
       expert: "Strategic Thinking Partner"
       inputs:
         - STR_intro_prompt
+        - Please draft a response plan.
       output: strat_response_01
   
   - COMPLEX:
-      action: test_polished_output
+      description: Starting Complex Action...
+      action: polished_output
       expert: CEO
       data:
         instruction: "Create a comprehensive response plan to the data breach based on the strategic thinking partner's suggestions."
@@ -19,6 +22,7 @@ ACTIONS:
       output: polished_response_plan
   
   - PROMPT:
+      description: Ethics Review...
       expert: "Ethical Decision Making Counselor"
       inputs:
         - STR_intro_prompt

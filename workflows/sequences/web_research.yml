@@ -1,51 +1,62 @@
 STRINGS:
-  STR_intro_prompt: "We are a financial institution, and we just suffered a major data breach that exposed private data for some of our customers. We need to decide how we respond to this in order to appease customers and regulatory agencies and come up with a response plan."
+  STR_intro_prompt: "You are going to do web research according to your own personal perspective, given the user's query. For this research task, try to find 3 good references. Create the web search keyword accoring to your own perspective on the topic. Below is the user's topic:"
   STR_delimiter: "*********************************************"
   STR_output_path: artifacts/
 
 ACTIONS:
   - PROMPT:
-      description: Search for tips
-      expert: CTO
+      description: CTO-perspective research...
+      expert: CTO Researcher
       inputs:
         - STR_intro_prompt
         - STR_delimiter
-        - 'Search the web for tips on how best to respond to this data breach incident we are in right now and then create a file "research_summary01.md" that summarizes the key points that you think are most important for the team in order to deal with this incident. Place that file in the following folder:'
-        - STR_output_path
-      output: websearch01
+        - STR_USER_INPUT
+        - STR_delimiter
+        - After you do enough research, please produce a report in markdown format.
+      output: CTO_research
 
   - PROMPT:
-      description: Evaluate and feedback
-      expert: "Communication Strategist"
+      description: CEO-perspective research...
+      expert: CEO Researcher
       inputs:
         - STR_intro_prompt
         - STR_delimiter
-        - Read the file artifacts/research_summary01.md - this is the CTO's summary of his research on how to deal with the data breach incident we are facing. Read and understand it, and then give your best feedback in order to help him make the best decision.
-      output: communication_feedback
-  
-  - PROMPT:
-      description: Advisor Feedback Creation
-      expert: "Decision Making Advisor"
-      inputs:
-        - STR_intro_prompt
+        - STR_USER_INPUT
         - STR_delimiter
-        - Read the file artifacts/research_summary01.md - this is the CTO's summary of his research on how to deal with the data breach incident we are facing. Read and understand it, and then give your best feedback in order to help him make the best decision.
-      output: decision_making_feedback
+        - After you do enough research, please produce a report in markdown format.
+      output: CEO_research
 
   - PROMPT:
-      description: Creating final response plan
-      expert: "CTO"
+      description: Sales-perspective research...
+      expert: Sales Researcher
       inputs:
         - STR_intro_prompt
         - STR_delimiter
-        - "Read the file artifacts/research_summary01.md. This is your synthesis on the initial web research you did on how to deal with this incident."
+        - STR_USER_INPUT
         - STR_delimiter
-        - "After reading that, here are feedback from your top two advisors. First, the feedback from your Communication Strategist:"
+        - After you do enough research, please produce a report in markdown format.
+      output: Sales_research
+
+  - PROMPT:
+      description: Consolidating final report...
+      expert: Consolidator Researcher
+      inputs:
+        - "This was the user's query:"
         - STR_delimiter
-        - communication_feedback
+        - STR_USER_INPUT
         - STR_delimiter
-        - "And here is the second feedback, from your Decision Making Advisor:"
+        - "Here is the report from the CEO researcher:"
         - STR_delimiter
-        - decision_making_feedback
-        - Based on their feedback and your initial work, please write a final incident response plan to help us deal with this incident. Place it in "artifacts/final_response_plan.md"
-      output: cto_final_response
+        - CEO_research
+        - STR_delimiter
+        - "Here is the report from the CTO researcher:"
+        - STR_delimiter
+        - CTO_research
+        - STR_delimiter
+        - "Here is the report from the Sales researcher:"
+        - STR_delimiter
+        - Sales_research
+        - STR_delimiter
+        - Now, please consolidate this information in a coherent, cohesive, and business-friendly final report, in markdown format.
+        - Write the file in artifacts/final_consolidated_web_report.md
+      output: Sales_research
